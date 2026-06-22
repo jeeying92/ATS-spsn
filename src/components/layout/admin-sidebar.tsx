@@ -43,7 +43,7 @@ export function AdminSidebar() {
           <img
             src={logoUrl || "/semipack-logo.png"}
             alt="Semipack"
-            className="h-8 w-auto object-contain brightness-0 invert"
+            className="h-9 w-auto object-contain bg-white rounded-lg px-2 py-1"
           />
         </Link>
         <div className="text-[11px] text-white/30 mt-1.5 uppercase tracking-widest">

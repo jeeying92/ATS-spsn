@@ -23,7 +23,7 @@ export function PublicHeader() {
             <img
               src={logoUrl || "/semipack-logo.png"}
               alt="Semipack Malaysia"
-              className="h-10 w-auto object-contain brightness-0 invert"
+              className="h-10 w-auto object-contain bg-white rounded-lg px-2 py-1"
             />
             <div className="hidden sm:block">
               <div className="text-white font-bold text-sm tracking-wide">SEMIPACK MALAYSIA SDN BHD</div>

@@ -13,7 +13,7 @@ export function PublicFooter() {
             <img
               src="/semipack-logo.png"
               alt="Semipack"
-              className="h-7 w-auto brightness-0 invert opacity-40"
+              className="h-7 w-auto object-contain bg-white/90 rounded px-1.5 py-0.5"
             />
             <span className="text-sm">Semipack Malaysia Sdn Bhd</span>
           </div>
