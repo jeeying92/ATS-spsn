@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { v4 as uuid } from "uuid";
 
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+async function uploadToStorage(
+  supabase: ReturnType<typeof createServiceClient>,
+  bucket: string,
+  file: File,
+  prefix: string
+): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const filePath = `${prefix}_${uuid().slice(0, 8)}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, buffer, { contentType: file.type, upsert: true });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  return data.publicUrl;
+}
 
 export async function GET() {
   const supabase = createServiceClient();
@@ -31,8 +47,6 @@ export async function PUT(req: NextRequest) {
   const logo = formData.get("logo") as File | null;
   const companyPhoto = formData.get("company_photo") as File | null;
 
-  await mkdir(UPLOADS_DIR, { recursive: true });
-
   const updates: Record<string, unknown> = {
     vision,
     mission,
@@ -41,22 +55,13 @@ export async function PUT(req: NextRequest) {
   };
 
   if (logo && logo.size > 0) {
-    const ext = logo.name.split(".").pop();
-    const fileName = `logo_${uuid().slice(0, 8)}.${ext}`;
-    const buffer = Buffer.from(await logo.arrayBuffer());
-    await writeFile(path.join(UPLOADS_DIR, fileName), buffer);
-    updates.logo_url = `/uploads/${fileName}`;
+    updates.logo_url = await uploadToStorage(supabase, "uploads", logo, "logo");
   }
 
   if (companyPhoto && companyPhoto.size > 0) {
-    const ext = companyPhoto.name.split(".").pop();
-    const fileName = `company_${uuid().slice(0, 8)}.${ext}`;
-    const buffer = Buffer.from(await companyPhoto.arrayBuffer());
-    await writeFile(path.join(UPLOADS_DIR, fileName), buffer);
-    updates.company_photo_url = `/uploads/${fileName}`;
+    updates.company_photo_url = await uploadToStorage(supabase, "uploads", companyPhoto, "company");
   }
 
-  // Get the single settings row
   const { data: existing } = await supabase
     .from("company_settings")
     .select("id")

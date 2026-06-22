@@ -3,10 +3,6 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, applicationConfirmationEmail } from "@/lib/email";
 import { evaluateWorkflows } from "@/lib/workflow-engine";
 import { v4 as uuid } from "uuid";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-
-const DOWNLOADS_DIR = path.join(process.cwd(), "public", "downloads");
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,17 +20,22 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Save resume to local downloads folder
+    // Upload resume to Supabase Storage
     let resumeUrl: string | null = null;
     if (resume && resume.size > 0) {
-      await mkdir(DOWNLOADS_DIR, { recursive: true });
       const ext = resume.name.split(".").pop();
       const safeName = name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-      const fileName = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
-      const filePath = path.join(DOWNLOADS_DIR, fileName);
+      const filePath = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
       const buffer = Buffer.from(await resume.arrayBuffer());
-      await writeFile(filePath, buffer);
-      resumeUrl = `/downloads/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(filePath, buffer, { contentType: resume.type });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
+        resumeUrl = urlData.publicUrl;
+      }
     }
 
     // Upsert candidate

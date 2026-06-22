@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { v4 as uuid } from "uuid";
-
-const DOWNLOADS_DIR = path.join(process.cwd(), "public", "downloads");
 
 export async function POST(
   req: NextRequest,
@@ -20,7 +16,6 @@ export async function POST(
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  // Get candidate name for filename
   const { data: candidate } = await supabase
     .from("candidates")
     .select("name")
@@ -31,16 +26,21 @@ export async function POST(
     return NextResponse.json({ error: "Candidate not found" }, { status: 404 });
   }
 
-  await mkdir(DOWNLOADS_DIR, { recursive: true });
-
   const ext = resume.name.split(".").pop();
   const safeName = candidate.name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-  const fileName = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
-  const filePath = path.join(DOWNLOADS_DIR, fileName);
+  const filePath = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
   const buffer = Buffer.from(await resume.arrayBuffer());
-  await writeFile(filePath, buffer);
 
-  const resumeUrl = `/downloads/${fileName}`;
+  const { error: uploadError } = await supabase.storage
+    .from("resumes")
+    .upload(filePath, buffer, { contentType: resume.type });
+
+  if (uploadError) {
+    return NextResponse.json({ error: "Failed to upload resume" }, { status: 500 });
+  }
+
+  const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
+  const resumeUrl = urlData.publicUrl;
 
   const { error } = await supabase
     .from("candidates")
