@@ -102,6 +102,67 @@ export interface CompanySettings {
   updated_at: string;
 }
 
+export type TriggerType =
+  | "application_received"
+  | "stage_changed"
+  | "interview_completed"
+  | "score_below"
+  | "offer_sent"
+  | "no_reply_days";
+
+export type ActionType =
+  | "send_email"
+  | "move_stage"
+  | "add_tag"
+  | "send_webhook"
+  | "notify_admin";
+
+export interface WorkflowAction {
+  type: ActionType;
+  config: Record<string, string>;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  enabled: boolean;
+  trigger_type: TriggerType;
+  trigger_config: Record<string, unknown>;
+  actions: WorkflowAction[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowLog {
+  id: string;
+  workflow_id: string;
+  workflow_name: string;
+  trigger_type: string;
+  application_id: string | null;
+  candidate_name: string | null;
+  actions_executed: { type: string; status: string; detail?: string }[];
+  status: "success" | "partial" | "failed";
+  error_message: string | null;
+  executed_at: string;
+}
+
+export const TRIGGER_LABELS: Record<TriggerType, string> = {
+  application_received: "Application Received",
+  stage_changed: "Stage Changed",
+  interview_completed: "Interview Completed",
+  score_below: "Score Below Threshold",
+  offer_sent: "Offer Sent",
+  no_reply_days: "No Reply (Days)",
+};
+
+export const ACTION_LABELS: Record<ActionType, string> = {
+  send_email: "Send Email",
+  move_stage: "Move to Stage",
+  add_tag: "Add Tag",
+  send_webhook: "Send Webhook",
+  notify_admin: "Notify Admin",
+};
+
 export const STAGES: ApplicationStage[] = [
   "applied",
   "screened",

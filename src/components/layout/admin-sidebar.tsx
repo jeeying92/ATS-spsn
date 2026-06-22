@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Briefcase,
   Users,
   Calendar,
   BarChart3,
+  Zap,
   Settings,
   ChevronLeft,
+  LogOut,
 } from "lucide-react";
 
 const navItems = [
@@ -17,11 +20,13 @@ const navItems = [
   { href: "/admin/candidates", label: "Candidates", icon: Users },
   { href: "/admin/interviews", label: "Interviews", icon: Calendar },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/workflows", label: "Workflows", icon: Zap },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,7 +47,7 @@ export function AdminSidebar() {
           />
         </Link>
         <div className="text-[11px] text-white/30 mt-1.5 uppercase tracking-widest">
-          ATS Admin Panel
+          Recruitment Tracking System
         </div>
       </div>
       <nav className="flex-1 px-3 py-5 space-y-1">
@@ -65,7 +70,7 @@ export function AdminSidebar() {
           );
         })}
       </nav>
-      <div className="px-3 py-4 border-t border-white/10">
+      <div className="px-3 py-4 border-t border-white/10 space-y-1">
         <Link
           href="/careers"
           className="flex items-center gap-2 px-4 py-2 text-sm text-white/30 hover:text-accent transition-colors"
@@ -73,6 +78,17 @@ export function AdminSidebar() {
           <ChevronLeft className="w-4 h-4" />
           View Careers Page
         </Link>
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            router.push("/admin/login");
+            router.refresh();
+          }}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-white/30 hover:text-red-400 transition-colors w-full text-left"
+        >
+          <LogOut className="w-4 h-4" />
+          Log Out
+        </button>
       </div>
     </aside>
   );

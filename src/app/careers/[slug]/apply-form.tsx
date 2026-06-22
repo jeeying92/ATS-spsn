@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { useLocale } from "@/lib/locale-context";
 import { CheckCircle } from "lucide-react";
 
 export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useLocale();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,16 +44,16 @@ export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string
     return (
       <div className="text-center py-8">
         <CheckCircle className="w-12 h-12 text-success mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900">Application Submitted!</h3>
-        <p className="text-muted mt-2 max-w-md mx-auto">
-          Thank you for applying for the {jobTitle} position. We will review your application and contact you within 5-7 business days.
+        <h3 className="text-xl font-semibold text-gray-900">{t("applicationSubmitted")}</h3>
+        <p className="text-muted mt-2">
+          {t("applicationConfirm")}
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-xl">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
           {error}
@@ -59,14 +61,14 @@ export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string
       )}
 
       <Input
-        label="Full Name *"
+        label={`${t("fullName")} *`}
         name="name"
         required
         placeholder="e.g. Ahmad Rizal bin Ibrahim"
       />
 
       <Input
-        label="Email Address *"
+        label={`${t("emailAddress")} *`}
         name="email"
         type="email"
         required
@@ -74,7 +76,7 @@ export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string
       />
 
       <Input
-        label="Phone Number *"
+        label={`${t("phoneNumber")} *`}
         name="phone"
         type="tel"
         required
@@ -83,7 +85,7 @@ export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string
 
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">
-          Resume (PDF, max 5MB) *
+          {t("resume")} *
         </label>
         <input
           name="resume"
@@ -95,14 +97,14 @@ export function ApplyForm({ jobId, jobTitle }: { jobId: string; jobTitle: string
       </div>
 
       <Textarea
-        label="Cover Letter"
+        label={t("coverLetter")}
         name="cover_letter"
-        placeholder="Tell us why you're interested in this role..."
+        placeholder={t("coverLetterPlaceholder")}
         rows={5}
       />
 
       <Button type="submit" loading={loading} size="lg" variant="accent" className="w-full">
-        Submit Application
+        {t("submitApplication")}
       </Button>
     </form>
   );

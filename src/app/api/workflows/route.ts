@@ -1,31 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const supabase = createServiceClient();
-  const search = req.nextUrl.searchParams.get("search") || "";
-  const tag = req.nextUrl.searchParams.get("tag") || "";
-
-  let query = supabase
-    .from("candidates")
-    .select("*, applications(id, stage, job:jobs(title))")
+  const { data: workflows, error } = await supabase
+    .from("workflows")
+    .select("*")
     .order("created_at", { ascending: false });
-
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
-  }
-
-  if (tag) {
-    query = query.contains("tags", [tag]);
-  }
-
-  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  // Also fetch recent logs
+  const { data: logs } = await supabase
+    .from("workflow_logs")
+    .select("*")
+    .order("executed_at", { ascending: false })
+    .limit(50);
+
+  return NextResponse.json({ workflows, logs: logs || [] });
 }
 
 export async function POST(req: NextRequest) {
@@ -33,21 +27,18 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
 
   const { data, error } = await supabase
-    .from("candidates")
+    .from("workflows")
     .insert({
       name: body.name,
-      email: body.email,
-      phone: body.phone || "",
-      tags: body.tags || [],
-      source: body.source || "manual",
+      trigger_type: body.trigger_type,
+      trigger_config: body.trigger_config || {},
+      actions: body.actions || [],
+      enabled: body.enabled ?? true,
     })
     .select()
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "A candidate with this email already exists" }, { status: 409 });
-    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -59,17 +50,16 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   const { id, ...updates } = body;
 
+  updates.updated_at = new Date().toISOString();
+
   const { data, error } = await supabase
-    .from("candidates")
+    .from("workflows")
     .update(updates)
     .eq("id", id)
     .select()
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return NextResponse.json({ error: "A candidate with this email already exists" }, { status: 409 });
-    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -80,7 +70,7 @@ export async function DELETE(req: NextRequest) {
   const supabase = createServiceClient();
   const { id } = await req.json();
 
-  const { error } = await supabase.from("candidates").delete().eq("id", id);
+  const { error } = await supabase.from("workflows").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { sendEmail, rejectionEmail, offerEmail } from "@/lib/email";
+import { sendEmail, rejectionEmail } from "@/lib/email";
+import { evaluateWorkflows } from "@/lib/workflow-engine";
 import { ApplicationStage } from "@/lib/types";
 
 export async function PATCH(
@@ -57,6 +58,18 @@ export async function PATCH(
       // Don't block on email failure
     }
   }
+
+  // Fire stage_changed workflow trigger
+  evaluateWorkflows("stage_changed", {
+    application_id: id,
+    candidate_id: app.candidate.id,
+    candidate_name: app.candidate.name,
+    candidate_email: app.candidate.email,
+    job_id: app.job_id,
+    job_title: app.job.title,
+    stage,
+    previous_stage: app.stage,
+  });
 
   return NextResponse.json({ success: true });
 }

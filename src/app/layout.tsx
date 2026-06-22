@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Semipack Malaysia - Careers",
+  title: "Semipack Malaysia - Recruitment Tracking System",
   description:
     "Join Semipack Malaysia Sdn Bhd. Explore career opportunities in semiconductor packaging.",
 };

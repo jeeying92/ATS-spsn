@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, offerEmail } from "@/lib/email";
+import { evaluateWorkflows } from "@/lib/workflow-engine";
 import { format } from "date-fns";
 
 export async function POST(req: NextRequest) {
@@ -64,6 +65,17 @@ export async function POST(req: NextRequest) {
   } catch {
     // Don't block on email failure
   }
+
+  // Fire offer_sent workflow trigger
+  evaluateWorkflows("offer_sent", {
+    application_id,
+    candidate_id: app.candidate.id,
+    candidate_name: app.candidate.name,
+    candidate_email: app.candidate.email,
+    job_id: app.job.id,
+    job_title: app.job.title,
+    stage: "offer",
+  });
 
   return NextResponse.json(offer);
 }

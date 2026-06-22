@@ -1,7 +1,8 @@
-import { AdminSidebar } from "@/components/layout/admin-sidebar";
+import { AdminShell } from "@/components/layout/admin-shell";
+import { AuthGuard } from "@/components/layout/auth-guard";
 
 export const metadata = {
-  title: "Admin - Semipack Malaysia ATS",
+  title: "Admin - Recruitment Tracking System",
 };
 
 export default function AdminLayout({
@@ -10,11 +11,8 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <AdminSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
-      </main>
-    </div>
+    <AuthGuard>
+      <AdminShell>{children}</AdminShell>
+    </AuthGuard>
   );
 }

@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { Candidate, STAGE_LABELS, ApplicationStage } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Tag, ExternalLink, X, Plus, Upload, FileText } from "lucide-react";
+import { Input, Select } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
+import { Search, Tag, FileText, X, Plus, Upload, Pencil, Trash2, UserPlus } from "lucide-react";
 
 type CandidateWithApps = Candidate & {
   applications: { id: string; stage: ApplicationStage; job: { title: string } | null }[];
@@ -19,6 +20,8 @@ export default function CandidatesPage() {
   const [addingTagFor, setAddingTagFor] = useState<string | null>(null);
   const [newTag, setNewTag] = useState("");
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<CandidateWithApps | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchCandidates = useCallback(async () => {
@@ -67,13 +70,39 @@ export default function CandidatesPage() {
     setUploadingFor(candidateId);
     const formData = new FormData();
     formData.append("resume", file);
-
     await fetch(`/api/candidates/${candidateId}/resume`, {
       method: "POST",
       body: formData,
     });
-
     setUploadingFor(null);
+    fetchCandidates();
+  }
+
+  async function handleSave(data: { name: string; email: string; phone: string; source: string }) {
+    const method = editing ? "PUT" : "POST";
+    const body = editing ? { id: editing.id, ...data } : data;
+    const res = await fetch("/api/candidates", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || "Failed to save candidate");
+      return;
+    }
+    setModalOpen(false);
+    setEditing(null);
+    fetchCandidates();
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete candidate "${name}"? This will also delete all their applications.`)) return;
+    await fetch("/api/candidates", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
     fetchCandidates();
   }
 
@@ -86,9 +115,14 @@ export default function CandidatesPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Candidates</h1>
-        <p className="text-sm text-muted mt-1">Search and manage candidate pool</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Candidates</h1>
+          <p className="text-sm text-muted mt-1">Search and manage candidate pool</p>
+        </div>
+        <Button onClick={() => { setEditing(null); setModalOpen(true); }}>
+          <UserPlus className="w-4 h-4 mr-2" /> Add Candidate
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -130,6 +164,7 @@ export default function CandidatesPage() {
                 <th className="text-left px-6 py-3 font-medium text-muted">Tags</th>
                 <th className="text-left px-6 py-3 font-medium text-muted">Applications</th>
                 <th className="text-left px-6 py-3 font-medium text-muted">Resume</th>
+                <th className="text-right px-6 py-3 font-medium text-muted">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -227,7 +262,25 @@ export default function CandidatesPage() {
                           ? "Uploading..."
                           : c.resume_url
                           ? "Replace"
-                          : "Upload Resume"}
+                          : "Upload"}
+                      </button>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => { setEditing(c); setModalOpen(true); }}
+                        className="p-1.5 rounded-lg hover:bg-gray-100"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4 text-muted" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id, c.name)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4 text-danger" />
                       </button>
                     </div>
                   </td>
@@ -237,6 +290,84 @@ export default function CandidatesPage() {
           </table>
         </div>
       )}
+
+      {/* Add / Edit Modal */}
+      <Modal
+        open={modalOpen}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        title={editing ? "Edit Candidate" : "Add Candidate"}
+      >
+        <CandidateForm
+          initial={editing}
+          onSave={handleSave}
+          onCancel={() => { setModalOpen(false); setEditing(null); }}
+        />
+      </Modal>
     </div>
+  );
+}
+
+function CandidateForm({
+  initial,
+  onSave,
+  onCancel,
+}: {
+  initial: CandidateWithApps | null;
+  onSave: (data: { name: string; email: string; phone: string; source: string }) => void;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: initial?.name || "",
+    email: initial?.email || "",
+    phone: initial?.phone || "",
+    source: initial?.source || "manual",
+  });
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onSave(form); }}
+      className="space-y-4"
+    >
+      <Input
+        label="Full Name *"
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+        required
+        placeholder="e.g. Ahmad Rizal bin Ibrahim"
+      />
+      <Input
+        label="Email *"
+        type="email"
+        value={form.email}
+        onChange={(e) => setForm({ ...form, email: e.target.value })}
+        required
+        placeholder="e.g. ahmad@email.com"
+      />
+      <Input
+        label="Phone"
+        type="tel"
+        value={form.phone}
+        onChange={(e) => setForm({ ...form, phone: e.target.value })}
+        placeholder="e.g. +60 12-345 6789"
+      />
+      <Select
+        label="Source"
+        value={form.source}
+        onChange={(e) => setForm({ ...form, source: e.target.value })}
+        options={[
+          { value: "manual", label: "Manual Entry" },
+          { value: "website", label: "Website" },
+          { value: "linkedin", label: "LinkedIn" },
+          { value: "referral", label: "Referral" },
+          { value: "jobstreet", label: "JobStreet" },
+          { value: "walk_in", label: "Walk-in" },
+          { value: "agency", label: "Agency" },
+        ]}
+      />
+      <div className="flex justify-end gap-3 pt-2">
+        <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
+        <Button type="submit">{initial ? "Save Changes" : "Add Candidate"}</Button>
+      </div>
+    </form>
   );
 }

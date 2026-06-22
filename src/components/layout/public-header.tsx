@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale } from "@/lib/locale-context";
 
 export function PublicHeader() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const { locale, setLocale, t } = useLocale();
 
   useEffect(() => {
     fetch("/api/settings")
@@ -23,20 +25,46 @@ export function PublicHeader() {
               alt="Semipack Malaysia"
               className="h-10 w-auto object-contain brightness-0 invert"
             />
+            <div className="hidden sm:block">
+              <div className="text-white font-bold text-sm tracking-wide">SEMIPACK MALAYSIA SDN BHD</div>
+            </div>
           </Link>
-          <nav className="flex items-center gap-8">
+          <nav className="flex items-center gap-4 sm:gap-6">
+            {/* Language switcher */}
+            <div className="flex items-center border border-white/20 rounded overflow-hidden text-xs">
+              <button
+                onClick={() => setLocale("en")}
+                className={`px-2.5 py-1.5 font-medium transition-colors ${
+                  locale === "en"
+                    ? "bg-accent text-primary-dark"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLocale("zh")}
+                className={`px-2.5 py-1.5 font-medium transition-colors ${
+                  locale === "zh"
+                    ? "bg-accent text-primary-dark"
+                    : "text-white/60 hover:text-white"
+                }`}
+              >
+                中文
+              </button>
+            </div>
             <Link
               href="/careers"
-              className="text-sm font-medium text-white/80 hover:text-accent transition-colors tracking-wide uppercase"
+              className="hidden sm:inline-flex text-sm font-medium text-white/80 hover:text-accent transition-colors tracking-wide uppercase"
             >
-              Careers
+              {t("careers")}
             </Link>
-            <Link
-              href="/careers"
+            <a
+              href="#openings"
               className="text-sm font-medium bg-accent text-primary-dark px-5 py-2 rounded hover:bg-accent-light transition-colors tracking-wide uppercase"
             >
-              View Openings
-            </Link>
+              {t("viewOpenings")}
+            </a>
           </nav>
         </div>
       </div>

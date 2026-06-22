@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, applicationConfirmationEmail } from "@/lib/email";
+import { evaluateWorkflows } from "@/lib/workflow-engine";
 import { v4 as uuid } from "uuid";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
@@ -107,6 +108,18 @@ export async function POST(req: NextRequest) {
     } catch {
       // Email failure shouldn't block the application
     }
+
+    // Fire workflow triggers
+    evaluateWorkflows("application_received", {
+      application_id: undefined, // just created, fetch if needed
+      candidate_id: candidateId,
+      candidate_name: name,
+      candidate_email: email,
+      job_id: jobId,
+      job_title: job?.title || "",
+      stage: "applied",
+      source: "website",
+    });
 
     return NextResponse.json({ success: true });
   } catch {

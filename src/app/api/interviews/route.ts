@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, interviewInviteEmail } from "@/lib/email";
+import { evaluateWorkflows } from "@/lib/workflow-engine";
 import { format } from "date-fns";
 
 export async function GET(req: NextRequest) {
@@ -85,8 +86,27 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // If score submitted, check for two consecutive < 3
+  // Fire workflow triggers when interview is completed with score
   if (updates.score && updates.completed) {
+    const ctx = {
+      application_id: data.application_id,
+      candidate_id: data.application?.candidate?.id,
+      candidate_name: data.application?.candidate?.name,
+      candidate_email: data.application?.candidate?.email,
+      job_id: data.application?.job?.id,
+      job_title: data.application?.job?.title,
+      stage: data.application?.stage,
+      score: updates.score as number,
+      interview_type: data.interview_type,
+    };
+
+    evaluateWorkflows("interview_completed", ctx);
+
+    if (updates.score <= 5) {
+      evaluateWorkflows("score_below", ctx);
+    }
+
+    // Check for two consecutive < 3
     const { data: allInterviews } = await supabase
       .from("interviews")
       .select("score, scheduled_at")

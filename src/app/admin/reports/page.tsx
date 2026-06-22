@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { STAGE_LABELS, ApplicationStage } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 import {
   Briefcase,
   Users,
@@ -11,6 +12,7 @@ import {
   Clock,
   Calendar,
   TrendingUp,
+  Download,
 } from "lucide-react";
 
 interface ReportData {
@@ -58,11 +60,85 @@ export default function ReportsPage() {
 
   const totalApps = data.summary.totalApplications || 1;
 
+  function downloadCSV(filename: string, headers: string[], rows: string[][]) {
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+    const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadSummary() {
+    const d = data!;
+    downloadCSV("summary_report.csv",
+      ["Metric", "Value"],
+      [
+        ["Active Jobs", String(d.summary.activeJobs)],
+        ["Total Candidates", String(d.summary.totalCandidates)],
+        ["Total Applications", String(d.summary.totalApplications)],
+        ["Avg. Time to Hire (days)", String(d.summary.avgTimeToHire)],
+        ["Total Interviews", String(d.summary.totalInterviews)],
+      ]
+    );
+  }
+
+  function downloadStageConversion() {
+    const d = data!;
+    downloadCSV("stage_conversion.csv",
+      ["Stage", "Count", "Percentage"],
+      Object.entries(d.stageCounts).map(([stage, count]) => [
+        STAGE_LABELS[stage as ApplicationStage] || stage,
+        String(count),
+        `${Math.round((count / totalApps) * 100)}%`,
+      ])
+    );
+  }
+
+  function downloadSourceStats() {
+    const d = data!;
+    downloadCSV("source_effectiveness.csv",
+      ["Source", "Applied", "Hired", "Conversion Rate"],
+      d.sourceStats.map((s) => [s.source, String(s.total), String(s.hired), `${s.conversion}%`])
+    );
+  }
+
+  function downloadDeptStats() {
+    const d = data!;
+    downloadCSV("department_progress.csv",
+      ["Department", "Open Jobs", "Applicants", "In Pipeline", "Hired"],
+      d.deptStats.map((dept) => [
+        dept.department,
+        String(dept.openJobs),
+        String(dept.totalApplicants),
+        String(dept.inPipeline),
+        String(dept.hired),
+      ])
+    );
+  }
+
+  function downloadAll() {
+    downloadSummary();
+    setTimeout(downloadStageConversion, 200);
+    setTimeout(downloadSourceStats, 400);
+    setTimeout(downloadDeptStats, 600);
+  }
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Reports</h1>
-        <p className="text-sm text-muted mt-1">Hiring analytics and insights</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Reports</h1>
+          <p className="text-sm text-muted mt-1">Hiring analytics and insights</p>
+        </div>
+        <Button onClick={downloadAll} variant="secondary">
+          <Download className="w-4 h-4 mr-2" /> Download All CSV
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -85,11 +161,14 @@ export default function ReportsPage() {
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         {/* Stage Conversion Funnel */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <h2 className="font-semibold flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
               Stage Conversion
             </h2>
+            <button onClick={downloadStageConversion} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -125,8 +204,11 @@ export default function ReportsPage() {
 
         {/* Source Effectiveness */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <h2 className="font-semibold">Source Effectiveness</h2>
+            <button onClick={downloadSourceStats} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
           </CardHeader>
           <CardContent>
             {data.sourceStats.length === 0 ? (
@@ -165,8 +247,11 @@ export default function ReportsPage() {
 
       {/* Department Progress */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <h2 className="font-semibold">Department Progress</h2>
+          <button onClick={downloadDeptStats} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+            <Download className="w-4 h-4" />
+          </button>
         </CardHeader>
         <CardContent>
           {data.deptStats.length === 0 ? (

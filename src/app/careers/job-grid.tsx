@@ -3,11 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Job } from "@/lib/types";
+import { useLocale } from "@/lib/locale-context";
 import { MapPin, Clock, Banknote, Search, ArrowRight } from "lucide-react";
 
 export function JobGrid({ jobs }: { jobs: Job[] }) {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("");
+  const { t } = useLocale();
 
   const departments = [...new Set(jobs.map((j) => j.department))];
 
@@ -20,6 +22,12 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
     return matchesSearch && matchesDept;
   });
 
+  const empType = (type: string) => {
+    if (type === "full_time") return t("fullTime");
+    if (type === "part_time") return t("partTime");
+    return t("contract");
+  };
+
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 mb-10 max-w-2xl mx-auto">
@@ -27,7 +35,7 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Search positions..."
+            placeholder={t("searchPositions")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-11 pr-4 py-3 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
@@ -38,7 +46,7 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
           onChange={(e) => setDepartment(e.target.value)}
           className="px-4 py-3 rounded-lg border border-border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
         >
-          <option value="">All Departments</option>
+          <option value="">{t("allDepartments")}</option>
           {departments.map((d) => (
             <option key={d} value={d}>
               {d}
@@ -49,8 +57,8 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-muted">
-          <p className="text-lg">No open positions found.</p>
-          <p className="text-sm mt-1">Try adjusting your filters or check back later.</p>
+          <p className="text-lg">{t("noPositions")}</p>
+          <p className="text-sm mt-1">{t("tryAdjusting")}</p>
         </div>
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
@@ -80,11 +88,7 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-accent/70" />
-                  {job.employment_type === "full_time"
-                    ? "Full Time"
-                    : job.employment_type === "part_time"
-                    ? "Part Time"
-                    : "Contract"}
+                  {empType(job.employment_type)}
                 </div>
                 {(job.salary_min || job.salary_max) && (
                   <div className="flex items-center gap-2">
@@ -102,7 +106,7 @@ export function JobGrid({ jobs }: { jobs: Job[] }) {
               </p>
               <div className="mt-5 pt-4 border-t border-border">
                 <span className="text-xs font-semibold text-primary group-hover:text-accent transition-colors uppercase tracking-wider">
-                  View Details &rarr;
+                  {t("viewDetails")} &rarr;
                 </span>
               </div>
             </Link>
