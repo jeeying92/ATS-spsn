@@ -1,8 +1,13 @@
-import { Resend } from "resend";
+import type { Resend } from "resend";
 
 let _resend: Resend | null = null;
-function getResend() {
-  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY || "");
+function getResend(): Resend | null {
+  if (_resend) return _resend;
+  const key = process.env.RESEND_API_KEY;
+  if (!key || key === "placeholder") return null;
+  // Dynamic import avoided — constructor is safe when key is real
+  const { Resend: ResendClass } = require("resend") as { Resend: new (key: string) => Resend };
+  _resend = new ResendClass(key);
   return _resend;
 }
 
@@ -15,7 +20,9 @@ interface SendEmailParams {
 }
 
 export async function sendEmail({ to, subject, html }: SendEmailParams) {
-  return getResend().emails.send({
+  const resend = getResend();
+  if (!resend) return null;
+  return resend.emails.send({
     from: FROM_EMAIL,
     to,
     subject,
