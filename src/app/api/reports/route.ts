@@ -50,8 +50,13 @@ export async function GET() {
     }).length;
   }
 
-  // Source effectiveness
-  const sources = [...new Set(apps.map((a) => a.candidate?.source || "unknown"))];
+  // Source effectiveness — show ALL sources, even with 0 applications
+  const ALL_SOURCES = [
+    "indeed", "website", "linkedin", "referral", "jobstreet",
+    "myfuturejobs", "ricebowl", "walk_in", "agency", "manual",
+  ];
+  const activeSources = new Set(apps.map((a) => a.candidate?.source || "unknown"));
+  const sources = [...new Set([...ALL_SOURCES, ...activeSources])];
   const sourceStats = sources.map((source) => {
     const sourceApps = apps.filter((a) => a.candidate?.source === source);
     const hired = sourceApps.filter((a) => a.stage === "hired").length;
