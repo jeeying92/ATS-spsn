@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [vision, setVision] = useState("");
   const [mission, setMission] = useState("");
   const [address, setAddress] = useState("");
+  const [visionZh, setVisionZh] = useState("");
+  const [missionZh, setMissionZh] = useState("");
+  const [addressZh, setAddressZh] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -28,6 +31,9 @@ export default function SettingsPage() {
     setVision(data.vision || "");
     setMission(data.mission || "");
     setAddress(data.address || "");
+    setVisionZh(data.vision_zh || "");
+    setMissionZh(data.mission_zh || "");
+    setAddressZh(data.address_zh || "");
     setLogoPreview(data.logo_url);
     setPhotoPreview(data.company_photo_url);
     if (data.meeting_providers) setMeetingProviders(data.meeting_providers);
@@ -58,6 +64,9 @@ export default function SettingsPage() {
     formData.append("vision", vision);
     formData.append("mission", mission);
     formData.append("address", address);
+    formData.append("vision_zh", visionZh);
+    formData.append("mission_zh", missionZh);
+    formData.append("address_zh", addressZh);
     formData.append("meeting_providers", JSON.stringify(meetingProviders));
     if (logoFile) formData.append("logo", logoFile);
     if (photoFile) formData.append("company_photo", photoFile);
@@ -183,20 +192,38 @@ export default function SettingsPage() {
             </h2>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea
-              label="Vision"
-              value={vision}
-              onChange={(e) => setVision(e.target.value)}
-              rows={3}
-              placeholder="Our company vision..."
-            />
-            <Textarea
-              label="Mission"
-              value={mission}
-              onChange={(e) => setMission(e.target.value)}
-              rows={4}
-              placeholder="Our company mission..."
-            />
+            <div className="grid md:grid-cols-2 gap-4">
+              <Textarea
+                label="Vision (English)"
+                value={vision}
+                onChange={(e) => setVision(e.target.value)}
+                rows={3}
+                placeholder="Our company vision..."
+              />
+              <Textarea
+                label="愿景 (中文)"
+                value={visionZh}
+                onChange={(e) => setVisionZh(e.target.value)}
+                rows={3}
+                placeholder="公司愿景..."
+              />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <Textarea
+                label="Mission (English)"
+                value={mission}
+                onChange={(e) => setMission(e.target.value)}
+                rows={4}
+                placeholder="Our company mission..."
+              />
+              <Textarea
+                label="使命 (中文)"
+                value={missionZh}
+                onChange={(e) => setMissionZh(e.target.value)}
+                rows={4}
+                placeholder="公司使命..."
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -209,13 +236,22 @@ export default function SettingsPage() {
             </h2>
           </CardHeader>
           <CardContent>
-            <Textarea
-              label="Company Address"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={3}
-              placeholder="Full company address..."
-            />
+            <div className="grid md:grid-cols-2 gap-4">
+              <Textarea
+                label="Company Address (English)"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={3}
+                placeholder="Full company address..."
+              />
+              <Textarea
+                label="公司地址 (中文)"
+                value={addressZh}
+                onChange={(e) => setAddressZh(e.target.value)}
+                rows={3}
+                placeholder="公司地址..."
+              />
+            </div>
           </CardContent>
         </Card>
 

@@ -12,7 +12,11 @@ export function CareersContent({
   jobs: Job[];
   company: CompanySettings | null;
 }) {
-  const { t } = useLocale();
+  const { locale, t } = useLocale();
+
+  const vision = locale === "zh" && company?.vision_zh ? company.vision_zh : company?.vision;
+  const mission = locale === "zh" && company?.mission_zh ? company.mission_zh : company?.mission;
+  const address = locale === "zh" && company?.address_zh ? company.address_zh : company?.address;
 
   return (
     <div>
@@ -79,7 +83,7 @@ export function CareersContent({
       </section>
 
       {/* About / Vision / Mission */}
-      {company && (company.vision || company.mission) && (
+      {company && (vision || mission) && (
         <section id="about" className="bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
             <div className="text-center mb-14">
@@ -92,7 +96,7 @@ export function CareersContent({
               <div className="section-divider mx-auto mt-4" />
             </div>
             <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-              {company.vision && (
+              {vision && (
                 <div className="bg-white rounded-xl p-8 shadow-sm border border-border">
                   <div className="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center mb-5">
                     <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -101,10 +105,10 @@ export function CareersContent({
                     </svg>
                   </div>
                   <h3 className="text-lg font-bold text-primary mb-3">{t("ourVision")}</h3>
-                  <p className="text-muted leading-relaxed">{company.vision}</p>
+                  <p className="text-muted leading-relaxed whitespace-pre-line">{vision}</p>
                 </div>
               )}
-              {company.mission && (
+              {mission && (
                 <div className="bg-white rounded-xl p-8 shadow-sm border border-border">
                   <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center mb-5">
                     <svg className="w-6 h-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -112,7 +116,7 @@ export function CareersContent({
                     </svg>
                   </div>
                   <h3 className="text-lg font-bold text-primary mb-3">{t("ourMission")}</h3>
-                  <p className="text-muted leading-relaxed">{company.mission}</p>
+                  <p className="text-muted leading-relaxed whitespace-pre-line">{mission}</p>
                 </div>
               )}
             </div>
@@ -146,10 +150,10 @@ export function CareersContent({
             <p className="text-white/60 text-lg mb-3">
               {t("ctaSubtitle")}
             </p>
-            {company?.address && (
+            {address && (
               <p className="text-white/40 text-sm flex items-center justify-center gap-2 mt-6">
                 <MapPin className="w-4 h-4" />
-                {company.address}
+                {address}
               </p>
             )}
           </div>

@@ -44,6 +44,9 @@ export async function PUT(req: NextRequest) {
   const vision = formData.get("vision") as string;
   const mission = formData.get("mission") as string;
   const address = formData.get("address") as string;
+  const visionZh = formData.get("vision_zh") as string;
+  const missionZh = formData.get("mission_zh") as string;
+  const addressZh = formData.get("address_zh") as string;
   const meetingProvidersRaw = formData.get("meeting_providers") as string | null;
   const logo = formData.get("logo") as File | null;
   const companyPhoto = formData.get("company_photo") as File | null;
@@ -52,6 +55,9 @@ export async function PUT(req: NextRequest) {
     vision,
     mission,
     address,
+    vision_zh: visionZh || "",
+    mission_zh: missionZh || "",
+    address_zh: addressZh || "",
     updated_at: new Date().toISOString(),
   };
 

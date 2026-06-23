@@ -116,6 +116,9 @@ export interface CompanySettings {
   vision: string;
   mission: string;
   address: string;
+  vision_zh: string;
+  mission_zh: string;
+  address_zh: string;
   meeting_providers: string[];
   updated_at: string;
 }
