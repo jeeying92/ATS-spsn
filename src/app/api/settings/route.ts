@@ -44,6 +44,7 @@ export async function PUT(req: NextRequest) {
   const vision = formData.get("vision") as string;
   const mission = formData.get("mission") as string;
   const address = formData.get("address") as string;
+  const meetingProvidersRaw = formData.get("meeting_providers") as string | null;
   const logo = formData.get("logo") as File | null;
   const companyPhoto = formData.get("company_photo") as File | null;
 
@@ -53,6 +54,10 @@ export async function PUT(req: NextRequest) {
     address,
     updated_at: new Date().toISOString(),
   };
+
+  if (meetingProvidersRaw) {
+    try { updates.meeting_providers = JSON.parse(meetingProvidersRaw); } catch { /* ignore */ }
+  }
 
   if (logo && logo.size > 0) {
     updates.logo_url = await uploadToStorage(supabase, "uploads", logo, "logo");

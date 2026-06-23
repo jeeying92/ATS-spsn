@@ -60,15 +60,32 @@ export interface Interview {
   scheduled_at: string;
   duration_minutes: number;
   meeting_link: string | null;
-  meeting_provider: "google_meet" | "zoom";
+  meeting_provider: string;
   interviewer_name: string;
   interviewer_email: string;
   feedback: string | null;
   score: number | null;
   completed: boolean;
+  remarks: string | null;
+  application_form_url: string | null;
   created_at: string;
   // joined
   application?: Application & { candidate?: Candidate; job?: Job };
+}
+
+export interface CandidateScore {
+  id: string;
+  candidate_id: string;
+  experience: number;
+  education: number;
+  skills: number;
+  communication: number;
+  culture_fit: number;
+  overall_score: number;
+  notes: string | null;
+  scored_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Offer {
@@ -99,8 +116,16 @@ export interface CompanySettings {
   vision: string;
   mission: string;
   address: string;
+  meeting_providers: string[];
   updated_at: string;
 }
+
+export const MEETING_PROVIDER_LABELS: Record<string, string> = {
+  google_meet: "Google Meet",
+  zoom: "Zoom",
+  semipack_premise: "Semipack Premise",
+  others: "Others",
+};
 
 export type TriggerType =
   | "application_received"

@@ -13,6 +13,7 @@ import {
   Calendar,
   TrendingUp,
   Download,
+  Star,
 } from "lucide-react";
 
 interface ReportData {
@@ -34,6 +35,16 @@ interface ReportData {
     hired: number;
     inPipeline: number;
   }[];
+  scoreStats: {
+    totalScored: number;
+    avgOverall: number;
+    distribution: { excellent: number; good: number; average: number; poor: number };
+    topCandidates: {
+      name: string; score: number;
+      experience: number; education: number; skills: number;
+      communication: number; culture_fit: number;
+    }[];
+  };
 }
 
 export default function ReportsPage() {
@@ -288,6 +299,108 @@ export default function ReportsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Candidate Score Analytics */}
+      <div className="grid md:grid-cols-2 gap-6 mt-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Star className="w-5 h-5 text-accent" />
+              Resume Score Distribution
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("score_distribution.csv",
+                ["Category", "Count"],
+                [
+                  ["Excellent (4-5)", String(d.scoreStats.distribution.excellent)],
+                  ["Good (3-4)", String(d.scoreStats.distribution.good)],
+                  ["Average (2-3)", String(d.scoreStats.distribution.average)],
+                  ["Poor (<2)", String(d.scoreStats.distribution.poor)],
+                ]
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-3 mb-4">
+              <div className="text-3xl font-bold text-primary">{data.scoreStats.avgOverall}</div>
+              <div className="text-xs text-muted">Average Score ({data.scoreStats.totalScored} scored)</div>
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: "Excellent (4-5)", count: data.scoreStats.distribution.excellent, color: "bg-green-400" },
+                { label: "Good (3-4)", count: data.scoreStats.distribution.good, color: "bg-blue-400" },
+                { label: "Average (2-3)", count: data.scoreStats.distribution.average, color: "bg-yellow-400" },
+                { label: "Poor (<2)", count: data.scoreStats.distribution.poor, color: "bg-red-400" },
+              ].map((item) => {
+                const pct = data.scoreStats.totalScored > 0 ? Math.round((item.count / data.scoreStats.totalScored) * 100) : 0;
+                return (
+                  <div key={item.label}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span>{item.label}</span>
+                      <span className="text-muted">{item.count} ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <Star className="w-5 h-5 text-accent" />
+              Top Candidates
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("top_candidates.csv",
+                ["Name", "Overall", "Experience", "Education", "Skills", "Communication", "Culture Fit"],
+                d.scoreStats.topCandidates.map((c) => [
+                  c.name, String(c.score), String(c.experience), String(c.education),
+                  String(c.skills), String(c.communication), String(c.culture_fit),
+                ])
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {data.scoreStats.topCandidates.length === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No candidates scored yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {data.scoreStats.topCandidates.map((c, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i === 0 ? "bg-accent/20 text-accent" : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{c.name}</div>
+                      <div className="text-xs text-muted">
+                        Exp:{c.experience} Edu:{c.education} Skill:{c.skills} Comm:{c.communication} Fit:{c.culture_fit}
+                      </div>
+                    </div>
+                    <div className={`text-lg font-bold ${
+                      c.score >= 4 ? "text-success" : c.score >= 3 ? "text-accent" : "text-warning"
+                    }`}>
+                      {c.score.toFixed(1)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

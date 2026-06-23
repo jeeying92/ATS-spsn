@@ -10,11 +10,13 @@ export async function GET() {
     { data: jobs },
     { data: candidates },
     { data: interviews },
+    { data: candidateScores },
   ] = await Promise.all([
     supabase.from("applications").select("*, candidate:candidates(source), job:jobs(title, department)"),
     supabase.from("jobs").select("*"),
     supabase.from("candidates").select("*"),
     supabase.from("interviews").select("*"),
+    supabase.from("candidate_scores").select("*, candidate:candidates(name)"),
   ]);
 
   const apps = applications || [];
@@ -89,5 +91,29 @@ export async function GET() {
     stagePassthrough,
     sourceStats,
     deptStats,
+    scoreStats: {
+      totalScored: (candidateScores || []).length,
+      avgOverall: (candidateScores || []).length > 0
+        ? Math.round(((candidateScores || []).reduce((sum: number, s: Record<string, unknown>) => sum + Number(s.overall_score), 0) / (candidateScores || []).length) * 10) / 10
+        : 0,
+      distribution: {
+        excellent: (candidateScores || []).filter((s: Record<string, unknown>) => Number(s.overall_score) >= 4).length,
+        good: (candidateScores || []).filter((s: Record<string, unknown>) => Number(s.overall_score) >= 3 && Number(s.overall_score) < 4).length,
+        average: (candidateScores || []).filter((s: Record<string, unknown>) => Number(s.overall_score) >= 2 && Number(s.overall_score) < 3).length,
+        poor: (candidateScores || []).filter((s: Record<string, unknown>) => Number(s.overall_score) < 2).length,
+      },
+      topCandidates: (candidateScores || [])
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.overall_score) - Number(a.overall_score))
+        .slice(0, 5)
+        .map((s: Record<string, unknown>) => ({
+          name: (s.candidate as Record<string, unknown>)?.name || "Unknown",
+          score: Number(s.overall_score),
+          experience: s.experience,
+          education: s.education,
+          skills: s.skills,
+          communication: s.communication,
+          culture_fit: s.culture_fit,
+        })),
+    },
   });
 }

@@ -30,11 +30,17 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
   const body = await req.json();
 
-  // Generate meeting link
-  const meetingLink =
-    body.meeting_provider === "zoom"
-      ? `https://zoom.us/j/${Math.floor(Math.random() * 9000000000) + 1000000000}`
-      : `https://meet.google.com/${generateMeetCode()}`;
+  // Generate meeting link based on provider
+  let meetingLink: string | null = null;
+  if (body.meeting_provider === "zoom") {
+    meetingLink = `https://zoom.us/j/${Math.floor(Math.random() * 9000000000) + 1000000000}`;
+  } else if (body.meeting_provider === "google_meet") {
+    meetingLink = `https://meet.google.com/${generateMeetCode()}`;
+  } else if (body.meeting_provider === "semipack_premise") {
+    meetingLink = null; // On-site, no link needed
+  } else {
+    meetingLink = null; // Others — admin provides details via remarks
+  }
 
   const { data: interview, error } = await supabase
     .from("interviews")
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
       format(scheduledDate, "EEEE, d MMMM yyyy"),
       format(scheduledDate, "h:mm a"),
       interview.duration_minutes,
-      meetingLink,
+      meetingLink || "On-site / To be confirmed",
       interview.interviewer_name
     );
     await sendEmail({ to: interview.application.candidate.email, ...emailContent });

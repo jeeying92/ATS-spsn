@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [meetingProviders, setMeetingProviders] = useState<string[]>(["google_meet", "zoom", "semipack_premise", "others"]);
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/settings");
@@ -29,6 +30,7 @@ export default function SettingsPage() {
     setAddress(data.address || "");
     setLogoPreview(data.logo_url);
     setPhotoPreview(data.company_photo_url);
+    if (data.meeting_providers) setMeetingProviders(data.meeting_providers);
     setLoading(false);
   }, []);
 
@@ -56,6 +58,7 @@ export default function SettingsPage() {
     formData.append("vision", vision);
     formData.append("mission", mission);
     formData.append("address", address);
+    formData.append("meeting_providers", JSON.stringify(meetingProviders));
     if (logoFile) formData.append("logo", logoFile);
     if (photoFile) formData.append("company_photo", photoFile);
 
@@ -213,6 +216,43 @@ export default function SettingsPage() {
               rows={3}
               placeholder="Full company address..."
             />
+          </CardContent>
+        </Card>
+
+        {/* Meeting Providers */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Interview Meeting Venues
+            </h2>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted mb-3">Select which meeting venues are available for scheduling interviews.</p>
+            <div className="space-y-2">
+              {[
+                { value: "google_meet", label: "Google Meet" },
+                { value: "zoom", label: "Zoom" },
+                { value: "semipack_premise", label: "Semipack Premise (On-site)" },
+                { value: "others", label: "Others" },
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={meetingProviders.includes(opt.value)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setMeetingProviders([...meetingProviders, opt.value]);
+                      } else {
+                        setMeetingProviders(meetingProviders.filter((p) => p !== opt.value));
+                      }
+                    }}
+                    className="rounded border-border text-primary focus:ring-primary/50"
+                  />
+                  <span className="text-sm">{opt.label}</span>
+                </label>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
