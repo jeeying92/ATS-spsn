@@ -357,9 +357,10 @@ function CandidateForm({ initial, onSave, onCancel }: {
       <Input label="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
       <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       <Select label="Source" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} options={[
-        { value: "manual", label: "Manual Entry" }, { value: "website", label: "Website" },
+        { value: "indeed", label: "Indeed" }, { value: "website", label: "Website" },
         { value: "linkedin", label: "LinkedIn" }, { value: "referral", label: "Referral" },
-        { value: "jobstreet", label: "JobStreet" }, { value: "walk_in", label: "Walk-in" },
+        { value: "jobstreet", label: "JobStreet" }, { value: "myfuturejobs", label: "MyFutureJobs" },
+        { value: "ricebowl", label: "Ricebowl" }, { value: "walk_in", label: "Walk-in" },
         { value: "agency", label: "Agency" },
       ]} />
       <div className="flex justify-end gap-3 pt-2">
