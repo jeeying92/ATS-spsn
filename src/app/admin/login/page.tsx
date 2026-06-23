@@ -41,7 +41,7 @@ export default function LoginPage() {
           <img
             src="/semipack-logo.png"
             alt="Semipack Malaysia"
-            className="h-12 w-auto mx-auto brightness-0 invert mb-4"
+            className="h-12 w-auto mx-auto bg-white rounded-lg px-3 py-1.5 mb-4"
           />
           <h1 className="text-xl font-bold text-white">Admin Login</h1>
           <p className="text-white/40 text-sm mt-1">Semipack Malaysia Sdn Bhd</p>
