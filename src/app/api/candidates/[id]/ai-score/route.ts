@@ -114,7 +114,7 @@ ${jobDescriptions ? `APPLIED FOR:\n${jobDescriptions}\n\n` : ""}${resumeContent 
     contentBlocks.push({ type: "text", text: userMessage });
 
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6-20250620",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 500,
       system: systemPrompt,
       messages: [{ role: "user", content: contentBlocks }],
