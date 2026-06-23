@@ -3,6 +3,19 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const SOURCE_LABELS: Record<string, string> = {
+  website: "Website",
+  indeed: "Indeed",
+  linkedin: "LinkedIn",
+  referral: "Referral",
+  jobstreet: "JobStreet",
+  myfuturejobs: "MyFutureJobs",
+  ricebowl: "Ricebowl",
+  walk_in: "Walk-in",
+  agency: "Agency",
+  manual: "Manual Entry",
+};
 import { STAGE_LABELS, ApplicationStage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -238,7 +251,7 @@ export default function ReportsPage() {
                   <tbody>
                     {data.sourceStats.map((s) => (
                       <tr key={s.source} className="border-b border-border last:border-0">
-                        <td className="py-2 capitalize">{s.source}</td>
+                        <td className="py-2">{SOURCE_LABELS[s.source] || s.source}</td>
                         <td className="py-2 text-right">{s.total}</td>
                         <td className="py-2 text-right">{s.hired}</td>
                         <td className="py-2 text-right">
