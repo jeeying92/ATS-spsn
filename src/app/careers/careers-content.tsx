@@ -63,8 +63,8 @@ export function CareersContent({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
             {[
-              { icon: Factory, value: "Nilai, N.S.", label: t("headquarters") },
-              { icon: Cpu, value: t("semiconductor"), label: t("industry") },
+              { icon: Factory, value: t("headquartersValue"), label: t("headquarters") },
+              { icon: Cpu, value: t("industryValue"), label: t("industry") },
               { icon: Users, value: `${jobs.length}`, label: t("openPositions") },
               { icon: Award, value: t("isoCertified"), label: t("qualityStandard") },
             ].map((stat) => (

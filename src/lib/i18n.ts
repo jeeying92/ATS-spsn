@@ -16,8 +16,9 @@ export const translations = {
 
     // Stats
     headquarters: "Headquarters",
+    headquartersValue: "Guangdong, China",
     industry: "Industry",
-    semiconductor: "Semiconductor",
+    industryValue: "Plastic Packing",
     openPositions: "Open Positions",
     qualityStandard: "Quality Standard",
     isoCertified: "ISO Certified",
@@ -85,8 +86,9 @@ export const translations = {
 
     // Stats
     headquarters: "总部",
+    headquartersValue: "中国广东",
     industry: "行业",
-    semiconductor: "半导体",
+    industryValue: "塑料包装",
     openPositions: "开放职位",
     qualityStandard: "质量标准",
     isoCertified: "ISO 认证",
