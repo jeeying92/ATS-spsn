@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { Search, Tag, FileText, X, Plus, Upload, Pencil, Trash2, UserPlus, Star, ClipboardCheck } from "lucide-react";
+import { Search, Tag, FileText, X, Plus, Upload, Pencil, Trash2, UserPlus, Star, ClipboardCheck, Sparkles, Loader2 } from "lucide-react";
 
 type CandidateWithApps = Candidate & {
   applications: { id: string; stage: ApplicationStage; job: { title: string } | null }[];
@@ -33,6 +33,7 @@ export default function CandidatesPage() {
   const [scoreModal, setScoreModal] = useState<CandidateWithApps | null>(null);
   const [scores, setScores] = useState<Record<string, CandidateScore | null>>({});
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [aiScoringFor, setAiScoringFor] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchCandidates = useCallback(async () => {
@@ -165,6 +166,23 @@ export default function CandidatesPage() {
     fetchCandidates();
   }
 
+  async function handleAiScore(candidateId: string) {
+    setAiScoringFor(candidateId);
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}/ai-score`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "AI scoring failed");
+        return;
+      }
+      fetchCandidates();
+    } catch {
+      alert("AI scoring failed. Check your API key.");
+    } finally {
+      setAiScoringFor(null);
+    }
+  }
+
   const stageBadgeVariant = (stage: string) => {
     if (stage === "hired") return "success";
     if (stage === "rejected") return "danger";
@@ -246,21 +264,42 @@ export default function CandidatesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {score ? (
-                        <button
-                          onClick={() => setScoreModal(c)}
-                          className={`font-bold text-lg ${scoreColor(score.overall_score)} hover:opacity-70`}
-                          title="Click to edit score"
-                        >
-                          {score.overall_score.toFixed(1)}
-                          <span className="text-xs text-muted font-normal">/5</span>
-                        </button>
+                        <div>
+                          <button
+                            onClick={() => setScoreModal(c)}
+                            className={`font-bold text-lg ${scoreColor(score.overall_score)} hover:opacity-70`}
+                            title="Click to view/edit score"
+                          >
+                            {score.overall_score.toFixed(1)}
+                            <span className="text-xs text-muted font-normal">/5</span>
+                          </button>
+                          {score.scored_by?.includes("AI") && (
+                            <div className="flex items-center gap-1 text-[10px] text-purple-500 mt-0.5">
+                              <Sparkles className="w-3 h-3" /> AI Scored
+                            </div>
+                          )}
+                        </div>
                       ) : (
-                        <button
-                          onClick={() => setScoreModal(c)}
-                          className="text-xs text-muted hover:text-primary flex items-center gap-1"
-                        >
-                          <ClipboardCheck className="w-3.5 h-3.5" /> Score
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          {aiScoringFor === c.id ? (
+                            <span className="flex items-center gap-1 text-xs text-purple-500">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing...
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleAiScore(c.id)}
+                              className="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 font-medium"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" /> AI Score
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setScoreModal(c)}
+                            className="text-xs text-muted hover:text-primary flex items-center gap-1"
+                          >
+                            <ClipboardCheck className="w-3.5 h-3.5" /> Manual
+                          </button>
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
@@ -327,7 +366,19 @@ export default function CandidatesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setScoreModal(c)} className="p-1.5 rounded-lg hover:bg-gray-100" title="Score Resume">
+                        <button
+                          onClick={() => handleAiScore(c.id)}
+                          disabled={aiScoringFor === c.id}
+                          className="p-1.5 rounded-lg hover:bg-purple-50 disabled:opacity-50"
+                          title="AI Score Resume"
+                        >
+                          {aiScoringFor === c.id ? (
+                            <Loader2 className="w-4 h-4 text-purple-500 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4 text-purple-500" />
+                          )}
+                        </button>
+                        <button onClick={() => setScoreModal(c)} className="p-1.5 rounded-lg hover:bg-gray-100" title="Manual Score">
                           <Star className="w-4 h-4 text-accent" />
                         </button>
                         <button onClick={() => { setEditing(c); setModalOpen(true); }} className="p-1.5 rounded-lg hover:bg-gray-100" title="Edit">
@@ -454,6 +505,12 @@ function ScoreForm({ candidate, existing, onSave, onCancel }: {
       <div className="text-center py-3 bg-gray-50 rounded-lg">
         <div className={`text-4xl font-bold ${overallColor}`}>{overall.toFixed(1)}</div>
         <div className="text-xs text-muted mt-1">Overall Score / 5.0</div>
+        {existing?.scored_by && (
+          <div className="flex items-center justify-center gap-1 text-xs text-purple-500 mt-1">
+            {existing.scored_by.includes("AI") && <Sparkles className="w-3 h-3" />}
+            Scored by: {existing.scored_by}
+          </div>
+        )}
       </div>
 
       {/* Criteria */}
