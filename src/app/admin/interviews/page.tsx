@@ -279,6 +279,7 @@ function ScheduleForm({ applications, providers, onSubmit, onCancel }: {
     meeting_provider: providers[0] || "google_meet",
     interviewer_name: "",
     interviewer_email: "",
+    remarks: "",
   });
 
   const providerOptions = providers.map((p) => ({ value: p, label: MEETING_PROVIDER_LABELS[p] || p }));
@@ -301,6 +302,13 @@ function ScheduleForm({ applications, providers, onSubmit, onCancel }: {
         <Input label="Interviewer Name *" value={form.interviewer_name} onChange={(e) => setForm({ ...form, interviewer_name: e.target.value })} required />
         <Input label="Interviewer Email *" type="email" value={form.interviewer_email} onChange={(e) => setForm({ ...form, interviewer_email: e.target.value })} required />
       </div>
+      <Textarea
+        label="Remarks for Candidate"
+        value={form.remarks}
+        onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+        placeholder="e.g. Please bring the following documents:&#10;- IC / Passport (original + copy)&#10;- Latest resume&#10;- Academic certificates&#10;- Last 3 months payslips&#10;- Expected salary details"
+        rows={4}
+      />
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
         <Button type="submit">Schedule & Send Invite</Button>
