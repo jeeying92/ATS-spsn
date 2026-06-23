@@ -53,7 +53,7 @@ export async function GET() {
   // Source effectiveness — show ALL sources, even with 0 applications
   const ALL_SOURCES = [
     "indeed", "website", "linkedin", "referral", "jobstreet",
-    "myfuturejobs", "ricebowl", "walk_in", "agency", "manual",
+    "myfuturejobs", "ricebowl", "walk_in", "agency",
   ];
   const activeSources = new Set(apps.map((a) => a.candidate?.source || "unknown"));
   const sources = [...new Set([...ALL_SOURCES, ...activeSources])];

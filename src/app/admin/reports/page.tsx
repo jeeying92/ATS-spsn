@@ -14,7 +14,6 @@ const SOURCE_LABELS: Record<string, string> = {
   ricebowl: "Ricebowl",
   walk_in: "Walk-in",
   agency: "Agency",
-  manual: "Manual Entry",
 };
 import { STAGE_LABELS, ApplicationStage } from "@/lib/types";
 import { Button } from "@/components/ui/button";
