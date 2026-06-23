@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Candidate, CandidateScore, STAGE_LABELS, STAGES, ApplicationStage } from "@/lib/types";
+import { Candidate, CandidateScore, Job, STAGE_LABELS, STAGES, ApplicationStage } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -32,15 +32,21 @@ export default function CandidatesPage() {
   const [editing, setEditing] = useState<CandidateWithApps | null>(null);
   const [scoreModal, setScoreModal] = useState<CandidateWithApps | null>(null);
   const [scores, setScores] = useState<Record<string, CandidateScore | null>>({});
+  const [jobs, setJobs] = useState<Job[]>([]);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchCandidates = useCallback(async () => {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (tagFilter) params.set("tag", tagFilter);
-    const res = await fetch(`/api/candidates?${params}`);
+    const [res, jobsRes] = await Promise.all([
+      fetch(`/api/candidates?${params}`),
+      fetch("/api/jobs"),
+    ]);
     const data = await res.json();
+    const jobsData = await jobsRes.json();
     setCandidates(data);
+    setJobs(jobsData);
     setLoading(false);
 
     // Fetch scores for all candidates
@@ -94,9 +100,10 @@ export default function CandidatesPage() {
     fetchCandidates();
   }
 
-  async function handleSave(data: { name: string; email: string; phone: string; source: string }) {
+  async function handleSave(data: { name: string; email: string; phone: string; source: string; job_id: string }) {
+    const { job_id, ...candidateData } = data;
     const method = editing ? "PUT" : "POST";
-    const body = editing ? { id: editing.id, ...data } : data;
+    const body = editing ? { id: editing.id, ...candidateData } : candidateData;
     const res = await fetch("/api/candidates", {
       method,
       headers: { "Content-Type": "application/json" },
@@ -107,6 +114,23 @@ export default function CandidatesPage() {
       alert(err.error || "Failed to save");
       return;
     }
+
+    // If a job is selected and this is a new candidate, create an application
+    if (job_id && !editing) {
+      const candidate = await res.json();
+      await fetch("/api/applications", {
+        method: "POST",
+        body: (() => {
+          const fd = new FormData();
+          fd.append("name", data.name);
+          fd.append("email", data.email);
+          fd.append("phone", data.phone);
+          fd.append("job_id", job_id);
+          return fd;
+        })(),
+      });
+    }
+
     setModalOpen(false);
     setEditing(null);
     fetchCandidates();
@@ -324,7 +348,7 @@ export default function CandidatesPage() {
 
       {/* Add/Edit Modal */}
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} title={editing ? "Edit Candidate" : "Add Candidate"}>
-        <CandidateForm initial={editing} onSave={handleSave} onCancel={() => { setModalOpen(false); setEditing(null); }} />
+        <CandidateForm initial={editing} jobs={jobs} onSave={handleSave} onCancel={() => { setModalOpen(false); setEditing(null); }} />
       </Modal>
 
       {/* Score Modal */}
@@ -342,20 +366,29 @@ export default function CandidatesPage() {
   );
 }
 
-function CandidateForm({ initial, onSave, onCancel }: {
+function CandidateForm({ initial, jobs, onSave, onCancel }: {
   initial: CandidateWithApps | null;
-  onSave: (data: { name: string; email: string; phone: string; source: string }) => void;
+  jobs: Job[];
+  onSave: (data: { name: string; email: string; phone: string; source: string; job_id: string }) => void;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState({
     name: initial?.name || "", email: initial?.email || "",
-    phone: initial?.phone || "", source: initial?.source || "manual",
+    phone: initial?.phone || "", source: initial?.source || "indeed",
+    job_id: "",
   });
+
+  const jobOptions = [
+    { value: "", label: "— Select Position —" },
+    ...jobs.map((j) => ({ value: j.id, label: `${j.title} (${j.department})` })),
+  ];
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
       <Input label="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="e.g. Ahmad Rizal bin Ibrahim" />
       <Input label="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
       <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+      <Select label="Applied Position" value={form.job_id} onChange={(e) => setForm({ ...form, job_id: e.target.value })} options={jobOptions} />
       <Select label="Source" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} options={[
         { value: "indeed", label: "Indeed" }, { value: "website", label: "Website" },
         { value: "linkedin", label: "LinkedIn" }, { value: "referral", label: "Referral" },
@@ -363,6 +396,18 @@ function CandidateForm({ initial, onSave, onCancel }: {
         { value: "ricebowl", label: "Ricebowl" }, { value: "walk_in", label: "Walk-in" },
         { value: "agency", label: "Agency" },
       ]} />
+      {initial && initial.applications.length > 0 && (
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Current Applications</label>
+          <div className="space-y-1">
+            {initial.applications.map((app) => (
+              <div key={app.id} className="text-sm text-muted bg-gray-50 rounded px-3 py-1.5">
+                {app.job?.title} — <span className="font-medium">{STAGE_LABELS[app.stage]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
         <Button type="submit">{initial ? "Save Changes" : "Add Candidate"}</Button>
