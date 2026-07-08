@@ -11,10 +11,25 @@ export async function PATCH(
   const { id } = await params;
   const supabase = createServiceClient();
   const body = await req.json();
-  const { stage, reject_reason } = body as {
-    stage: ApplicationStage;
+  const { stage, reject_reason, pretest_score } = body as {
+    stage?: ApplicationStage;
     reject_reason?: string;
+    pretest_score?: number | null;
   };
+
+  // Pretest score update (no stage change needed)
+  if (pretest_score !== undefined && stage === undefined) {
+    const { error } = await supabase
+      .from("applications")
+      .update({ pretest_score: pretest_score ?? null })
+      .eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
+
+  if (!stage) {
+    return NextResponse.json({ error: "stage is required" }, { status: 400 });
+  }
 
   // Get current application with candidate and job
   const { data: app } = await supabase

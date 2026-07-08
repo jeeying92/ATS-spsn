@@ -46,6 +46,7 @@ export interface Application {
   stage: ApplicationStage;
   cover_letter: string | null;
   reject_reason: string | null;
+  pretest_score: number | null;
   applied_at: string;
   stage_changed_at: string;
   created_at: string;
@@ -123,6 +124,7 @@ export interface CompanySettings {
   address_zh: string;
   meeting_providers: string[];
   math_test_form_url: string | null;
+  pretest_form_url: string | null;
   updated_at: string;
 }
 

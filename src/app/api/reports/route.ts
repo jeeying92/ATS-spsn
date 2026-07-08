@@ -110,6 +110,27 @@ export async function GET() {
       })),
   };
 
+  // Pre-test score analytics
+  const appsWithPretest = apps.filter((a) => a.pretest_score !== null && a.pretest_score !== undefined);
+  const avgPretestScore = appsWithPretest.length > 0
+    ? Math.round(appsWithPretest.reduce((sum: number, a: Record<string, unknown>) => sum + Number(a.pretest_score), 0) / appsWithPretest.length * 10) / 10
+    : 0;
+  const pretestScoreStats = {
+    totalTested: appsWithPretest.length,
+    avgScore: avgPretestScore,
+    pass: appsWithPretest.filter((a: Record<string, unknown>) => Number(a.pretest_score) >= 70).length,
+    borderline: appsWithPretest.filter((a: Record<string, unknown>) => Number(a.pretest_score) >= 50 && Number(a.pretest_score) < 70).length,
+    fail: appsWithPretest.filter((a: Record<string, unknown>) => Number(a.pretest_score) < 50).length,
+    topScorers: appsWithPretest
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.pretest_score) - Number(a.pretest_score))
+      .slice(0, 5)
+      .map((a: Record<string, unknown>) => ({
+        candidateName: (a.candidate as Record<string, unknown>)?.name || "Unknown",
+        jobTitle: (a.job as Record<string, unknown>)?.title || "",
+        pretestScore: Number(a.pretest_score),
+      })),
+  };
+
   return NextResponse.json({
     summary: {
       totalJobs: allJobs.length,
@@ -124,6 +145,7 @@ export async function GET() {
     sourceStats,
     deptStats,
     mathScoreStats,
+    pretestScoreStats,
     scoreStats: {
       totalScored: (candidateScores || []).length,
       avgOverall: (candidateScores || []).length > 0

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from("candidates")
-    .select("*, applications(id, stage, job:jobs(title))")
+    .select("*, applications(id, stage, pretest_score, job:jobs(title))")
     .order("created_at", { ascending: false });
 
   if (search) {

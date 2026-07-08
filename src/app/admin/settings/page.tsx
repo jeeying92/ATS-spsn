@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [meetingProviders, setMeetingProviders] = useState<string[]>(["google_meet", "zoom", "semipack_premise", "others"]);
   const [mathTestFormUrl, setMathTestFormUrl] = useState("");
+  const [pretestFormUrl, setPretestFormUrl] = useState("");
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/settings");
@@ -39,6 +40,7 @@ export default function SettingsPage() {
     setPhotoPreview(data.company_photo_url);
     if (data.meeting_providers) setMeetingProviders(data.meeting_providers);
     setMathTestFormUrl(data.math_test_form_url || "");
+    setPretestFormUrl(data.pretest_form_url || "");
     setLoading(false);
   }, []);
 
@@ -71,6 +73,7 @@ export default function SettingsPage() {
     formData.append("address_zh", addressZh);
     formData.append("meeting_providers", JSON.stringify(meetingProviders));
     formData.append("math_test_form_url", mathTestFormUrl);
+    formData.append("pretest_form_url", pretestFormUrl);
     if (logoFile) formData.append("logo", logoFile);
     if (photoFile) formData.append("company_photo", photoFile);
 
@@ -282,6 +285,38 @@ export default function SettingsPage() {
             </div>
             {mathTestFormUrl && (
               <a href={mathTestFormUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+                <ClipboardList className="w-3.5 h-3.5" />
+                Preview Form
+              </a>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pre-Test Form */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Pre-Test (Google Form)
+            </h2>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted">
+              Link a Google Form for candidate pre-test. This link will appear in the candidate&apos;s application so admins can share it before interviews.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Google Form URL</label>
+              <input
+                type="url"
+                value={pretestFormUrl}
+                onChange={(e) => setPretestFormUrl(e.target.value)}
+                placeholder="https://docs.google.com/forms/d/e/..."
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+            {pretestFormUrl && (
+              <a href={pretestFormUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
                 <ClipboardList className="w-3.5 h-3.5" />
                 Preview Form

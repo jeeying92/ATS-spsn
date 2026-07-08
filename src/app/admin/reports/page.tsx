@@ -56,6 +56,14 @@ interface ReportData {
     fail: number;
     topScorers: { candidateName: string; jobTitle: string; mathScore: number; interviewType: string }[];
   };
+  pretestScoreStats: {
+    totalTested: number;
+    avgScore: number;
+    pass: number;
+    borderline: number;
+    fail: number;
+    topScorers: { candidateName: string; jobTitle: string; pretestScore: number }[];
+  };
   scoreStats: {
     totalScored: number;
     avgOverall: number;
@@ -433,6 +441,109 @@ export default function ReportsPage() {
                     </div>
                     <div className={`text-lg font-bold ${s.mathScore >= 70 ? "text-success" : s.mathScore >= 50 ? "text-warning" : "text-danger"}`}>
                       {s.mathScore}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pre-Test Score Analytics */}
+      <div className="grid md:grid-cols-2 gap-6 mt-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-indigo-600" />
+              Pre-Test Results
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("pretest_results.csv",
+                ["Category", "Count"],
+                [
+                  ["Total Tested", String(d.pretestScoreStats.totalTested)],
+                  ["Average Score", `${d.pretestScoreStats.avgScore}%`],
+                  ["Pass (≥70%)", String(d.pretestScoreStats.pass)],
+                  ["Borderline (50–69%)", String(d.pretestScoreStats.borderline)],
+                  ["Fail (<50%)", String(d.pretestScoreStats.fail)],
+                ]
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {data.pretestScoreStats.totalTested === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No pre-test scores recorded yet.</p>
+            ) : (
+              <>
+                <div className="text-center py-3 mb-4">
+                  <div className={`text-3xl font-bold ${data.pretestScoreStats.avgScore >= 70 ? "text-success" : data.pretestScoreStats.avgScore >= 50 ? "text-warning" : "text-danger"}`}>
+                    {data.pretestScoreStats.avgScore}%
+                  </div>
+                  <div className="text-xs text-muted">Average Score ({data.pretestScoreStats.totalTested} tested)</div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { label: "Pass (≥70%)", count: data.pretestScoreStats.pass, color: "bg-green-400" },
+                    { label: "Borderline (50–69%)", count: data.pretestScoreStats.borderline, color: "bg-yellow-400" },
+                    { label: "Fail (<50%)", count: data.pretestScoreStats.fail, color: "bg-red-400" },
+                  ].map((item) => {
+                    const pct = data.pretestScoreStats.totalTested > 0 ? Math.round((item.count / data.pretestScoreStats.totalTested) * 100) : 0;
+                    return (
+                      <div key={item.label}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>{item.label}</span>
+                          <span className="text-muted">{item.count} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${item.color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-indigo-600" />
+              Top Pre-Test Scorers
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("top_pretest_scorers.csv",
+                ["Candidate", "Job", "Pre-Test Score"],
+                d.pretestScoreStats.topScorers.map((s) => [s.candidateName, s.jobTitle, `${s.pretestScore}%`])
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {data.pretestScoreStats.topScorers.length === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No pre-test scores recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {data.pretestScoreStats.topScorers.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i === 0 ? "bg-indigo-100 text-indigo-700" : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{s.candidateName}</div>
+                      <div className="text-xs text-muted truncate">{s.jobTitle}</div>
+                    </div>
+                    <div className={`text-lg font-bold ${s.pretestScore >= 70 ? "text-success" : s.pretestScore >= 50 ? "text-warning" : "text-danger"}`}>
+                      {s.pretestScore}%
                     </div>
                   </div>
                 ))}

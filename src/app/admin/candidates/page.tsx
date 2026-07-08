@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
-import { Search, Tag, FileText, X, Plus, Upload, Pencil, Trash2, UserPlus, Star, ClipboardCheck, Sparkles, Loader2 } from "lucide-react";
+import { Search, Tag, FileText, X, Plus, Upload, Pencil, Trash2, UserPlus, Star, ClipboardCheck, Sparkles, Loader2, ExternalLink } from "lucide-react";
 
 type CandidateWithApps = Candidate & {
-  applications: { id: string; stage: ApplicationStage; job: { title: string } | null }[];
+  applications: { id: string; stage: ApplicationStage; pretest_score: number | null; job: { title: string } | null }[];
 };
 
 const SCORE_CRITERIA = [
@@ -34,20 +34,26 @@ export default function CandidatesPage() {
   const [scores, setScores] = useState<Record<string, CandidateScore | null>>({});
   const [jobs, setJobs] = useState<Job[]>([]);
   const [aiScoringFor, setAiScoringFor] = useState<string | null>(null);
+  const [pretestFormUrl, setPretestFormUrl] = useState<string | null>(null);
+  const [editingPretestFor, setEditingPretestFor] = useState<string | null>(null);
+  const [pretestInput, setPretestInput] = useState("");
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchCandidates = useCallback(async () => {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (tagFilter) params.set("tag", tagFilter);
-    const [res, jobsRes] = await Promise.all([
+    const [res, jobsRes, settingsRes] = await Promise.all([
       fetch(`/api/candidates?${params}`),
       fetch("/api/jobs"),
+      fetch("/api/settings"),
     ]);
     const data = await res.json();
     const jobsData = await jobsRes.json();
+    const settingsData = await settingsRes.json();
     setCandidates(data);
     setJobs(jobsData);
+    setPretestFormUrl(settingsData.pretest_form_url || null);
     setLoading(false);
 
     // Fetch scores for all candidates
@@ -159,6 +165,18 @@ export default function CandidatesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage: newStage }),
     });
+    fetchCandidates();
+  }
+
+  async function handlePretestScoreSave(appId: string, value: string) {
+    const score = value === "" ? null : parseInt(value, 10);
+    if (score !== null && (isNaN(score) || score < 0 || score > 100)) return;
+    await fetch(`/api/applications/${appId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pretest_score: score }),
+    });
+    setEditingPretestFor(null);
     fetchCandidates();
   }
 
@@ -329,25 +347,61 @@ export default function CandidatesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {c.applications.map((app) => (
-                          <div key={app.id} className="flex items-center gap-2">
-                            <select
-                              value={app.stage}
-                              onChange={(e) => handleStageChange(app.id, e.target.value)}
-                              className={`text-xs rounded-full px-2 py-0.5 border-0 font-medium cursor-pointer ${
-                                app.stage === "hired" ? "bg-green-100 text-green-700" :
-                                app.stage === "rejected" ? "bg-red-100 text-red-700" :
-                                app.stage === "offer" ? "bg-yellow-100 text-yellow-800" :
-                                app.stage === "contacting" ? "bg-purple-100 text-purple-700" :
-                                "bg-blue-100 text-blue-700"
-                              }`}
-                            >
-                              {([...STAGES, "rejected"] as ApplicationStage[]).map((s) => (
-                                <option key={s} value={s}>{STAGE_LABELS[s]}</option>
-                              ))}
-                            </select>
-                            <span className="text-xs text-muted truncate max-w-[100px]">{app.job?.title}</span>
+                          <div key={app.id} className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={app.stage}
+                                onChange={(e) => handleStageChange(app.id, e.target.value)}
+                                className={`text-xs rounded-full px-2 py-0.5 border-0 font-medium cursor-pointer ${
+                                  app.stage === "hired" ? "bg-green-100 text-green-700" :
+                                  app.stage === "rejected" ? "bg-red-100 text-red-700" :
+                                  app.stage === "offer" ? "bg-yellow-100 text-yellow-800" :
+                                  app.stage === "contacting" ? "bg-purple-100 text-purple-700" :
+                                  "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {([...STAGES, "rejected"] as ApplicationStage[]).map((s) => (
+                                  <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+                                ))}
+                              </select>
+                              <span className="text-xs text-muted truncate max-w-[100px]">{app.job?.title}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 pl-0.5">
+                              <span className="text-[10px] text-muted">Pre-test:</span>
+                              {editingPretestFor === app.id ? (
+                                <form onSubmit={(e) => { e.preventDefault(); handlePretestScoreSave(app.id, pretestInput); }} className="inline-flex items-center gap-1">
+                                  <input
+                                    type="number" min="0" max="100" value={pretestInput}
+                                    onChange={(e) => setPretestInput(e.target.value)}
+                                    className="w-14 px-1.5 py-0.5 border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                    placeholder="0-100" autoFocus
+                                    onBlur={() => handlePretestScoreSave(app.id, pretestInput)}
+                                    onKeyDown={(e) => { if (e.key === "Escape") setEditingPretestFor(null); }}
+                                  />
+                                </form>
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingPretestFor(app.id); setPretestInput(app.pretest_score?.toString() ?? ""); }}
+                                  className={`text-xs font-medium px-1.5 py-0.5 rounded hover:bg-gray-100 ${
+                                    app.pretest_score === null ? "text-muted" :
+                                    app.pretest_score >= 70 ? "text-green-700 bg-green-50" :
+                                    app.pretest_score >= 50 ? "text-yellow-700 bg-yellow-50" :
+                                    "text-red-700 bg-red-50"
+                                  }`}
+                                  title="Click to edit pre-test score"
+                                >
+                                  {app.pretest_score !== null ? `${app.pretest_score}/100` : "—"}
+                                </button>
+                              )}
+                              {pretestFormUrl && (
+                                <a href={pretestFormUrl} target="_blank" rel="noopener noreferrer"
+                                  className="text-primary hover:text-primary/70" title="Open pre-test form">
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
                           </div>
                         ))}
                         {c.applications.length === 0 && <span className="text-xs text-muted">No applications</span>}
