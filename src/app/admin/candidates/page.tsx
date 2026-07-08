@@ -116,21 +116,25 @@ export default function CandidatesPage() {
       return;
     }
 
-    // If a job is selected and this is a new candidate, create an application
-    if (job_id && !editing) {
+    // Create application whenever a position is selected (new or existing candidate)
+    if (job_id) {
       const candidate = await res.json();
+      const candidateId = editing ? editing.id : candidate.id;
       const appRes = await fetch("/api/applications", {
         method: "POST",
         body: (() => {
           const fd = new FormData();
-          fd.append("candidate_id", candidate.id);
+          fd.append("candidate_id", candidateId);
           fd.append("job_id", job_id);
           return fd;
         })(),
       });
       if (!appRes.ok) {
         const err = await appRes.json();
-        alert(err.error || "Candidate added but failed to link application");
+        // 409 = already applied to this position, silently ignore
+        if (err.error !== "You have already applied for this position") {
+          alert(err.error || "Failed to link application");
+        }
       }
     }
 
