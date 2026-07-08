@@ -1,6 +1,7 @@
 export type JobStatus = "draft" | "published" | "closed";
 export type ApplicationStage =
   | "applied"
+  | "contacting"
   | "screened"
   | "interview_1"
   | "interview_2"
@@ -195,6 +196,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
 
 export const STAGES: ApplicationStage[] = [
   "applied",
+  "contacting",
   "screened",
   "interview_1",
   "interview_2",
@@ -204,6 +206,7 @@ export const STAGES: ApplicationStage[] = [
 
 export const STAGE_LABELS: Record<ApplicationStage, string> = {
   applied: "Applied",
+  contacting: "Contacting",
   screened: "Screened",
   interview_1: "Interview 1",
   interview_2: "Interview 2",

@@ -193,6 +193,7 @@ export default function CandidatesPage() {
     if (stage === "hired") return "success";
     if (stage === "rejected") return "danger";
     if (stage === "offer") return "warning";
+    if (stage === "contacting") return "default";
     return "info";
   };
 
@@ -338,10 +339,11 @@ export default function CandidatesPage() {
                                 app.stage === "hired" ? "bg-green-100 text-green-700" :
                                 app.stage === "rejected" ? "bg-red-100 text-red-700" :
                                 app.stage === "offer" ? "bg-yellow-100 text-yellow-800" :
+                                app.stage === "contacting" ? "bg-purple-100 text-purple-700" :
                                 "bg-blue-100 text-blue-700"
                               }`}
                             >
-                              {[...STAGES, "rejected" as ApplicationStage].map((s) => (
+                              {([...STAGES, "rejected"] as ApplicationStage[]).map((s) => (
                                 <option key={s} value={s}>{STAGE_LABELS[s]}</option>
                               ))}
                             </select>
