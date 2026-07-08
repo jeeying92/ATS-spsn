@@ -35,6 +35,8 @@ export default function InterviewsPage() {
   const [detailModal, setDetailModal] = useState<Interview | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [suggestRejectAlert, setSuggestRejectAlert] = useState<string | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
   const [meetingProviders, setMeetingProviders] = useState<string[]>(["google_meet", "zoom", "semipack_premise", "others"]);
   const [mathTestFormUrl, setMathTestFormUrl] = useState<string>("");
 
@@ -67,54 +69,65 @@ export default function InterviewsPage() {
     interviews.filter((i) => isSameDay(new Date(i.scheduled_at), day));
 
   async function handleSchedule(formData: Record<string, string>) {
-    let applicationId = formData.application_id;
+    setScheduleError(null);
+    setScheduling(true);
 
-    // If no existing application_id, create one first (candidate + job selected directly)
-    if (!applicationId && formData.candidate_id && formData.job_id) {
-      const appRes = await fetch("/api/applications", {
-        method: "POST",
-        body: (() => {
-          const fd = new FormData();
-          fd.append("candidate_id", formData.candidate_id);
-          fd.append("job_id", formData.job_id);
-          return fd;
-        })(),
-      });
-      if (appRes.ok) {
-        // fetch the newly created application
+    try {
+      let applicationId = formData.application_id;
+
+      // If no existing application_id, create/find one using candidate + job
+      if (!applicationId && formData.candidate_id && formData.job_id) {
+        // Try to create application (may return 409 if already exists)
+        await fetch("/api/applications", {
+          method: "POST",
+          body: (() => {
+            const fd = new FormData();
+            fd.append("candidate_id", formData.candidate_id);
+            fd.append("job_id", formData.job_id);
+            return fd;
+          })(),
+        });
+        // Always look up the application (whether just created or already existing)
         const appsRes = await fetch(`/api/applications?job_id=${formData.job_id}`);
         const apps = await appsRes.json();
-        const newApp = apps.find((a: Application) => a.candidate_id === formData.candidate_id);
-        if (newApp) applicationId = newApp.id;
-      } else {
-        // application may already exist — find it
-        const appsRes = await fetch(`/api/applications?job_id=${formData.job_id}`);
-        const apps = await appsRes.json();
-        const existing = apps.find((a: Application) => a.candidate_id === formData.candidate_id);
-        if (existing) applicationId = existing.id;
+        const found = Array.isArray(apps)
+          ? apps.find((a: Application) => a.candidate_id === formData.candidate_id)
+          : null;
+        if (found) applicationId = found.id;
       }
-    }
 
-    if (!applicationId) {
-      alert("Could not find or create an application for this candidate. Please add the candidate to a job first.");
-      return;
-    }
+      if (!applicationId) {
+        setScheduleError("Please select a candidate and a job position before scheduling.");
+        return;
+      }
 
-    await fetch("/api/interviews", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        application_id: applicationId,
-        interview_type: formData.interview_type,
-        scheduled_at: formData.scheduled_at,
-        duration_minutes: parseInt(formData.duration_minutes),
-        meeting_provider: formData.meeting_provider,
-        interviewer_name: formData.interviewer_name,
-        interviewer_email: formData.interviewer_email,
-      }),
-    });
-    setScheduleModal(false);
-    fetchData();
+      const intRes = await fetch("/api/interviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          application_id: applicationId,
+          interview_type: formData.interview_type,
+          scheduled_at: formData.scheduled_at,
+          duration_minutes: parseInt(formData.duration_minutes),
+          meeting_provider: formData.meeting_provider,
+          interviewer_name: formData.interviewer_name,
+          interviewer_email: formData.interviewer_email,
+          remarks: formData.remarks || null,
+        }),
+      });
+
+      if (!intRes.ok) {
+        const err = await intRes.json();
+        setScheduleError(err.error || "Failed to schedule interview. Please try again.");
+        return;
+      }
+
+      setScheduleModal(false);
+      setScheduleError(null);
+      fetchData();
+    } finally {
+      setScheduling(false);
+    }
   }
 
   async function handleFeedback(interviewId: string, score: number, feedback: string, mathScore: number | null) {
@@ -299,14 +312,16 @@ export default function InterviewsPage() {
       )}
 
       {/* Schedule Modal */}
-      <Modal open={scheduleModal} onClose={() => setScheduleModal(false)} title="Schedule Interview" size="lg">
+      <Modal open={scheduleModal} onClose={() => { setScheduleModal(false); setScheduleError(null); }} title="Schedule Interview" size="lg">
         <ScheduleForm
           applications={applications.filter((a) => !["hired", "rejected"].includes(a.stage))}
           allCandidates={candidates}
           allJobs={jobs}
           providers={meetingProviders}
+          submitting={scheduling}
+          error={scheduleError}
           onSubmit={handleSchedule}
-          onCancel={() => setScheduleModal(false)}
+          onCancel={() => { setScheduleModal(false); setScheduleError(null); }}
         />
       </Modal>
 
@@ -332,11 +347,13 @@ export default function InterviewsPage() {
   );
 }
 
-function ScheduleForm({ applications, allCandidates, allJobs, providers, onSubmit, onCancel }: {
+function ScheduleForm({ applications, allCandidates, allJobs, providers, submitting, error, onSubmit, onCancel }: {
   applications: Application[];
   allCandidates: { id: string; name: string; email: string }[];
   allJobs: { id: string; title: string; department: string }[];
   providers: string[];
+  submitting: boolean;
+  error: string | null;
   onSubmit: (data: Record<string, string>) => void;
   onCancel: () => void;
 }) {
@@ -451,9 +468,16 @@ function ScheduleForm({ applications, allCandidates, allJobs, providers, onSubmi
         placeholder="e.g. Please bring the following documents:&#10;- IC / Passport (original + copy)&#10;- Latest resume&#10;- Academic certificates&#10;- Last 3 months payslips&#10;- Expected salary details"
         rows={4}
       />
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="flex justify-end gap-3 pt-2">
-        <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
-        <Button type="submit">Schedule & Send Invite</Button>
+        <Button variant="secondary" type="button" onClick={onCancel} disabled={submitting}>Cancel</Button>
+        <Button type="submit" loading={submitting}>
+          {submitting ? "Scheduling..." : "Schedule & Send Invite"}
+        </Button>
       </div>
     </form>
   );
