@@ -1,36 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 
-const QUESTIONS = [
-  {
-    text: "A production lot contains 1,200 pcs. If 35 pcs are rejected, how many good pcs remain?",
-    options: ["1,000 pcs", "1,165 pcs", "1,200 pcs", "1,500 pcs"],
-    correct: "1,165 pcs",
-  },
-  {
-    text: "A machine produces 150 pcs/hour. How many pieces will it produce in 8 hours?",
-    options: ["800 pcs", "1,100 pcs", "1,200 pcs", "1,400 pcs"],
-    correct: "1,200 pcs",
-  },
-  {
-    text: "A box holds 250 reels. How many boxes are needed for 2,000 reels?",
-    options: ["8 boxes", "10 boxes", "12 boxes", "15 boxes"],
-    correct: "8 boxes",
-  },
-  {
-    text: "A reel contains 500 meters of tape. Two reels contain how many meters?",
-    options: ["500 meters", "1,000 meters", "1,500 meters", "1,600 meters"],
-    correct: "1,000 meters",
-  },
-  {
-    text: "If 5 cartons each weigh 18 kg, what is the total weight?",
-    options: ["45 kg", "90 kg", "95 kg", "100 kg"],
-    correct: "90 kg",
-  },
-];
-
-const POSITION_OPTIONS = ["Production Operator", "QC Inspector", "Technician"];
-
 export async function GET() {
   const supabase = createServiceClient();
   const { data: settings } = await supabase
@@ -49,11 +19,11 @@ export async function GET() {
   }
 
   const sheetId = match[1];
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
 
   let csvText: string;
   try {
-    const res = await fetch(csvUrl, { next: { revalidate: 0 } });
+    const res = await fetch(csvUrl, { cache: "no-store" });
     if (!res.ok) {
       return NextResponse.json(
         { error: "Cannot access sheet. Make sure it is shared as 'Anyone with the link can view'." },
@@ -66,81 +36,114 @@ export async function GET() {
   }
 
   const rows = parseCSV(csvText);
-  if (rows.length < 2) {
-    return NextResponse.json({
-      configured: true,
-      totalRespondents: 0,
-      questionStats: QUESTIONS.map((q) => ({ ...q, counts: {}, total: 0 })),
-      positionCounts: {},
-      scoreDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 },
-    });
+  if (rows.length < 1) {
+    return NextResponse.json({ error: "Sheet is empty." }, { status: 400 });
   }
 
-  const dataRows = rows.slice(1); // skip header row
+  const headers = rows[0].map((h) => h.trim());
+  const dataRows = rows.slice(1).filter((r) => r.some((c) => c.trim() !== ""));
 
-  // Per-question answer counts
-  const questionStats = QUESTIONS.map((q, idx) => {
-    const colIdx = idx + 1; // col 0 = Timestamp
-    const counts: Record<string, number> = {};
-    for (const opt of q.options) counts[opt] = 0;
-    for (const row of dataRows) {
-      const ans = row[colIdx]?.trim();
-      if (!ans) continue;
-      counts[ans] = (counts[ans] ?? 0) + 1;
+  // Locate special columns
+  const scoreCol = headers.findIndex((h) => /^score$/i.test(h));
+  const nameCol = headers.findIndex((h) => /^name/i.test(h));
+  const positionCol = headers.findIndex((h) => /position applied/i.test(h));
+  const timestampCol = headers.findIndex((h) => /^timestamp$/i.test(h));
+
+  // Question columns = everything else with a non-empty header
+  const questionCols = headers
+    .map((h, i) => ({ header: h, index: i }))
+    .filter(
+      ({ header, index }) =>
+        header !== "" &&
+        index !== scoreCol &&
+        index !== nameCol &&
+        index !== positionCol &&
+        index !== timestampCol
+    );
+
+  // Respondents with parsed scores
+  const respondents = dataRows.map((row) => {
+    const rawScore = scoreCol >= 0 ? row[scoreCol]?.trim() ?? "" : "";
+    let percent: number | null = null;
+    const m = rawScore.match(/^([\d.]+)\s*\/\s*([\d.]+)$/);
+    if (m && Number(m[2]) > 0) {
+      percent = Math.round((Number(m[1]) / Number(m[2])) * 100);
     }
-    return { ...q, counts, total: dataRows.length };
+    return {
+      name: nameCol >= 0 ? row[nameCol]?.trim() || "(no name)" : "(no name)",
+      position: positionCol >= 0 ? row[positionCol]?.trim() || "-" : "-",
+      score: rawScore || "-",
+      percent,
+      timestamp: timestampCol >= 0 ? row[timestampCol]?.trim() ?? "" : "",
+    };
   });
 
-  // Position breakdown (col 6)
-  const positionCounts: Record<string, number> = {};
-  for (const opt of POSITION_OPTIONS) positionCounts[opt] = 0;
-  for (const row of dataRows) {
-    const pos = row[6]?.trim();
-    if (!pos) continue;
-    positionCounts[pos] = (positionCounts[pos] ?? 0) + 1;
-  }
+  const scored = respondents.filter((r) => r.percent !== null) as (typeof respondents[number] & { percent: number })[];
+  const avgPercent = scored.length > 0
+    ? Math.round(scored.reduce((s, r) => s + r.percent, 0) / scored.length)
+    : 0;
 
-  // Score distribution (0–5 correct)
-  const scoreDistribution: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0, 0: 0 };
-  for (const row of dataRows) {
-    let correct = 0;
-    QUESTIONS.forEach((q, idx) => {
-      if (row[idx + 1]?.trim() === q.correct) correct++;
-    });
-    scoreDistribution[correct] = (scoreDistribution[correct] ?? 0) + 1;
+  // Per-question answer distribution (skip blanks — sections not shown to that respondent)
+  const questionStats = questionCols.map(({ header, index }) => {
+    const counts: Record<string, number> = {};
+    let total = 0;
+    for (const row of dataRows) {
+      const ans = row[index]?.trim();
+      if (!ans) continue;
+      counts[ans] = (counts[ans] ?? 0) + 1;
+      total++;
+    }
+    return { text: header, counts, total };
+  }).filter((q) => q.total > 0);
+
+  // Position breakdown
+  const positionCounts: Record<string, number> = {};
+  for (const r of respondents) {
+    if (r.position === "-") continue;
+    positionCounts[r.position] = (positionCounts[r.position] ?? 0) + 1;
   }
 
   return NextResponse.json({
     configured: true,
     totalRespondents: dataRows.length,
+    totalQuestions: questionCols.length,
+    avgPercent,
+    pass: scored.filter((r) => r.percent >= 70).length,
+    borderline: scored.filter((r) => r.percent >= 50 && r.percent < 70).length,
+    fail: scored.filter((r) => r.percent < 50).length,
+    respondents: respondents.sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1)),
     questionStats,
     positionCounts,
-    scoreDistribution,
     lastUpdated: new Date().toISOString(),
   });
 }
 
 function parseCSV(csv: string): string[][] {
   const rows: string[][] = [];
-  for (const line of csv.split("\n")) {
-    if (!line.trim()) continue;
-    const row: string[] = [];
-    let inQuotes = false;
-    let current = "";
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (ch === "," && !inQuotes) {
-        row.push(current);
-        current = "";
-      } else {
-        current += ch;
-      }
+  let row: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < csv.length; i++) {
+    const ch = csv[i];
+    if (ch === '"') {
+      if (inQuotes && csv[i + 1] === '"') { current += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (ch === "," && !inQuotes) {
+      row.push(current);
+      current = "";
+    } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
+      if (ch === "\r" && csv[i + 1] === "\n") i++;
+      row.push(current);
+      current = "";
+      if (row.some((c) => c !== "")) rows.push(row);
+      row = [];
+    } else {
+      current += ch;
     }
+  }
+  if (current !== "" || row.length > 0) {
     row.push(current);
-    rows.push(row);
+    if (row.some((c) => c !== "")) rows.push(row);
   }
   return rows;
 }
