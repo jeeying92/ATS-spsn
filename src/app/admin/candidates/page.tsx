@@ -119,17 +119,19 @@ export default function CandidatesPage() {
     // If a job is selected and this is a new candidate, create an application
     if (job_id && !editing) {
       const candidate = await res.json();
-      await fetch("/api/applications", {
+      const appRes = await fetch("/api/applications", {
         method: "POST",
         body: (() => {
           const fd = new FormData();
-          fd.append("name", data.name);
-          fd.append("email", data.email);
-          fd.append("phone", data.phone);
+          fd.append("candidate_id", candidate.id);
           fd.append("job_id", job_id);
           return fd;
         })(),
       });
+      if (!appRes.ok) {
+        const err = await appRes.json();
+        alert(err.error || "Candidate added but failed to link application");
+      }
     }
 
     setModalOpen(false);

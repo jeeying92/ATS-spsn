@@ -13,61 +13,72 @@ export async function POST(req: NextRequest) {
     const jobId = formData.get("job_id") as string;
     const coverLetter = formData.get("cover_letter") as string;
     const resume = formData.get("resume") as File | null;
+    // Admin can pass candidate_id directly to skip email lookup
+    const directCandidateId = formData.get("candidate_id") as string | null;
 
-    if (!name || !email || !phone || !jobId) {
+    if (!jobId) {
+      return NextResponse.json({ error: "Missing job_id" }, { status: 400 });
+    }
+    if (!directCandidateId && (!name || !email || !phone)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
     const supabase = createServiceClient();
 
-    // Upload resume to Supabase Storage
-    let resumeUrl: string | null = null;
-    if (resume && resume.size > 0) {
-      const ext = resume.name.split(".").pop();
-      const safeName = name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-      const filePath = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
-      const buffer = Buffer.from(await resume.arrayBuffer());
-
-      const { error: uploadError } = await supabase.storage
-        .from("resumes")
-        .upload(filePath, buffer, { contentType: resume.type });
-
-      if (!uploadError) {
-        const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
-        resumeUrl = urlData.publicUrl;
-      }
-    }
-
-    // Upsert candidate
-    const { data: existingCandidate } = await supabase
-      .from("candidates")
-      .select("id")
-      .eq("email", email)
-      .single();
-
     let candidateId: string;
 
-    if (existingCandidate) {
-      candidateId = existingCandidate.id;
-      await supabase
-        .from("candidates")
-        .update({
-          name,
-          phone,
-          ...(resumeUrl ? { resume_url: resumeUrl } : {}),
-        })
-        .eq("id", candidateId);
+    if (directCandidateId) {
+      // Admin flow: candidate already exists, link directly
+      candidateId = directCandidateId;
     } else {
-      const { data: newCandidate, error: candidateError } = await supabase
+      // Public careers page flow: upsert candidate by email
+
+      // Upload resume to Supabase Storage
+      let resumeUrl: string | null = null;
+      if (resume && resume.size > 0) {
+        const ext = resume.name.split(".").pop();
+        const safeName = name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+        const filePath = `${safeName}_${uuid().slice(0, 8)}.${ext}`;
+        const buffer = Buffer.from(await resume.arrayBuffer());
+
+        const { error: uploadError } = await supabase.storage
+          .from("resumes")
+          .upload(filePath, buffer, { contentType: resume.type });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from("resumes").getPublicUrl(filePath);
+          resumeUrl = urlData.publicUrl;
+        }
+      }
+
+      const { data: existingCandidate } = await supabase
         .from("candidates")
-        .insert({ name, email, phone, resume_url: resumeUrl, source: "website" })
         .select("id")
+        .eq("email", email)
         .single();
 
-      if (candidateError || !newCandidate) {
-        return NextResponse.json({ error: "Failed to create candidate" }, { status: 500 });
+      if (existingCandidate) {
+        candidateId = existingCandidate.id;
+        await supabase
+          .from("candidates")
+          .update({
+            name,
+            phone,
+            ...(resumeUrl ? { resume_url: resumeUrl } : {}),
+          })
+          .eq("id", candidateId);
+      } else {
+        const { data: newCandidate, error: candidateError } = await supabase
+          .from("candidates")
+          .insert({ name, email, phone, resume_url: resumeUrl, source: "website" })
+          .select("id")
+          .single();
+
+        if (candidateError || !newCandidate) {
+          return NextResponse.json({ error: "Failed to create candidate" }, { status: 500 });
+        }
+        candidateId = newCandidate.id;
       }
-      candidateId = newCandidate.id;
     }
 
     // Check for duplicate application
