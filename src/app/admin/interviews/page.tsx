@@ -262,7 +262,7 @@ export default function InterviewsPage() {
       {/* Schedule Modal */}
       <Modal open={scheduleModal} onClose={() => setScheduleModal(false)} title="Schedule Interview" size="lg">
         <ScheduleForm
-          applications={applications.filter((a) => ["screened", "interview_1", "interview_2"].includes(a.stage))}
+          applications={applications.filter((a) => !["hired", "rejected"].includes(a.stage))}
           providers={meetingProviders}
           onSubmit={handleSchedule}
           onCancel={() => setScheduleModal(false)}
