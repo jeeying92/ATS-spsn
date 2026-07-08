@@ -50,6 +50,7 @@ export async function PUT(req: NextRequest) {
   const meetingProvidersRaw = formData.get("meeting_providers") as string | null;
   const mathTestFormUrl = formData.get("math_test_form_url") as string | null;
   const pretestFormUrl = formData.get("pretest_form_url") as string | null;
+  const pretestSheetUrl = formData.get("pretest_sheet_url") as string | null;
   const logo = formData.get("logo") as File | null;
   const companyPhoto = formData.get("company_photo") as File | null;
 
@@ -62,6 +63,7 @@ export async function PUT(req: NextRequest) {
     address_zh: addressZh || "",
     math_test_form_url: mathTestFormUrl || null,
     pretest_form_url: pretestFormUrl || null,
+    pretest_sheet_url: pretestSheetUrl || null,
     updated_at: new Date().toISOString(),
   };
 

@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [meetingProviders, setMeetingProviders] = useState<string[]>(["google_meet", "zoom", "semipack_premise", "others"]);
   const [mathTestFormUrl, setMathTestFormUrl] = useState("");
   const [pretestFormUrl, setPretestFormUrl] = useState("");
+  const [pretestSheetUrl, setPretestSheetUrl] = useState("");
 
   const fetchSettings = useCallback(async () => {
     const res = await fetch("/api/settings");
@@ -41,6 +42,7 @@ export default function SettingsPage() {
     if (data.meeting_providers) setMeetingProviders(data.meeting_providers);
     setMathTestFormUrl(data.math_test_form_url || "");
     setPretestFormUrl(data.pretest_form_url || "");
+    setPretestSheetUrl(data.pretest_sheet_url || "");
     setLoading(false);
   }, []);
 
@@ -74,6 +76,7 @@ export default function SettingsPage() {
     formData.append("meeting_providers", JSON.stringify(meetingProviders));
     formData.append("math_test_form_url", mathTestFormUrl);
     formData.append("pretest_form_url", pretestFormUrl);
+    formData.append("pretest_sheet_url", pretestSheetUrl);
     if (logoFile) formData.append("logo", logoFile);
     if (photoFile) formData.append("company_photo", photoFile);
 
@@ -301,9 +304,9 @@ export default function SettingsPage() {
               Pre-Test (Google Form)
             </h2>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
             <p className="text-xs text-muted">
-              Link a Google Form for candidate pre-test. This link will appear in the candidate&apos;s application so admins can share it before interviews.
+              Link a Google Form for candidate pre-test. To view response analytics in Reports, also link the Google Sheet that collects the form responses.
             </p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Google Form URL</label>
@@ -322,6 +325,19 @@ export default function SettingsPage() {
                 Preview Form
               </a>
             )}
+            <div className="border-t border-border pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Google Sheet URL (for response analytics)</label>
+              <input
+                type="url"
+                value={pretestSheetUrl}
+                onChange={(e) => setPretestSheetUrl(e.target.value)}
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+              <p className="text-xs text-muted mt-1.5">
+                In Google Forms → Responses → click the Sheets icon to link. Then share the sheet as &quot;Anyone with the link can view&quot;.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

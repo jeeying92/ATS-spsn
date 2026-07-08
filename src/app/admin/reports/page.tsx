@@ -76,14 +76,35 @@ interface ReportData {
   };
 }
 
+interface PretestResponseData {
+  configured: boolean;
+  totalRespondents?: number;
+  error?: string;
+  questionStats?: {
+    text: string;
+    options: string[];
+    correct: string;
+    counts: Record<string, number>;
+    total: number;
+  }[];
+  positionCounts?: Record<string, number>;
+  scoreDistribution?: Record<number, number>;
+  lastUpdated?: string;
+}
+
 export default function ReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pretestData, setPretestData] = useState<PretestResponseData | null>(null);
 
   useEffect(() => {
     fetch("/api/reports")
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); });
+    fetch("/api/pretest-responses")
+      .then((r) => r.json())
+      .then((d) => setPretestData(d))
+      .catch(() => setPretestData(null));
   }, []);
 
   if (loading || !data) {
@@ -547,6 +568,128 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pre-Test Google Form Responses */}
+      <div className="mt-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Pre-Test Form Responses
+              {pretestData?.totalRespondents !== undefined && (
+                <span className="text-sm font-normal text-muted ml-1">({pretestData.totalRespondents} respondents)</span>
+              )}
+            </h2>
+            {pretestData?.lastUpdated && (
+              <span className="text-xs text-muted">Updated: {new Date(pretestData.lastUpdated).toLocaleTimeString()}</span>
+            )}
+          </CardHeader>
+          <CardContent>
+            {!pretestData ? (
+              <p className="text-sm text-muted text-center py-4">Loading...</p>
+            ) : !pretestData.configured ? (
+              <div className="text-center py-6">
+                <ClipboardList className="w-10 h-10 text-muted mx-auto mb-2" />
+                <p className="text-sm text-muted">No Google Sheet linked yet.</p>
+                <p className="text-xs text-muted mt-1">Go to Settings → Pre-Test → paste the Google Sheet URL to enable response analytics.</p>
+              </div>
+            ) : pretestData.error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">{pretestData.error}</div>
+            ) : pretestData.totalRespondents === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No responses yet.</p>
+            ) : (
+              <div className="space-y-8">
+                {/* Score distribution */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Score Distribution (out of 5)</h3>
+                  <div className="flex gap-2 items-end h-24">
+                    {[5, 4, 3, 2, 1, 0].map((score) => {
+                      const count = pretestData.scoreDistribution?.[score] ?? 0;
+                      const pct = pretestData.totalRespondents! > 0 ? (count / pretestData.totalRespondents!) * 100 : 0;
+                      return (
+                        <div key={score} className="flex-1 flex flex-col items-center gap-1">
+                          <span className="text-xs text-muted">{count}</span>
+                          <div className="w-full rounded-t" style={{
+                            height: `${Math.max(pct, 2)}%`,
+                            backgroundColor: score >= 4 ? "#22c55e" : score >= 3 ? "#f59e0b" : "#ef4444",
+                            minHeight: count > 0 ? "8px" : "0",
+                          }} />
+                          <span className="text-xs font-medium">{score}/5</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Per-question breakdown */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-4">Question-by-Question Breakdown</h3>
+                  <div className="space-y-6">
+                    {pretestData.questionStats?.map((q, qi) => {
+                      const maxCount = Math.max(...Object.values(q.counts), 1);
+                      return (
+                        <div key={qi} className="border border-border rounded-lg p-4">
+                          <div className="flex items-start gap-2 mb-3">
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">{qi + 1}</span>
+                            <p className="text-sm font-medium">{q.text}</p>
+                          </div>
+                          <div className="space-y-2">
+                            {q.options.map((opt) => {
+                              const count = q.counts[opt] ?? 0;
+                              const pct = q.total > 0 ? Math.round((count / q.total) * 100) : 0;
+                              const isCorrect = opt === q.correct;
+                              return (
+                                <div key={opt}>
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <span className={`flex items-center gap-1 ${isCorrect ? "text-green-700 font-semibold" : "text-gray-700"}`}>
+                                      {isCorrect && <span className="text-green-600">✓</span>}
+                                      {opt}
+                                    </span>
+                                    <span className="text-muted">{count} ({pct}%)</span>
+                                  </div>
+                                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full ${isCorrect ? "bg-green-400" : "bg-blue-300"}`}
+                                      style={{ width: `${maxCount > 0 ? (count / maxCount) * 100 : 0}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Position breakdown */}
+                {pretestData.positionCounts && Object.keys(pretestData.positionCounts).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Applied Position</h3>
+                    <div className="space-y-2">
+                      {Object.entries(pretestData.positionCounts).map(([pos, count]) => {
+                        const pct = pretestData.totalRespondents! > 0 ? Math.round((count / pretestData.totalRespondents!) * 100) : 0;
+                        return (
+                          <div key={pos}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span>{pos}</span>
+                              <span className="text-muted">{count} ({pct}%)</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-indigo-400" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

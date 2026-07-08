@@ -125,6 +125,7 @@ export interface CompanySettings {
   meeting_providers: string[];
   math_test_form_url: string | null;
   pretest_form_url: string | null;
+  pretest_sheet_url: string | null;
   updated_at: string;
 }
 
