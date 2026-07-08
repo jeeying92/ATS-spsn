@@ -27,6 +27,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMont
 export default function InterviewsPage() {
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [candidates, setCandidates] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [jobs, setJobs] = useState<{ id: string; title: string; department: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [scheduleModal, setScheduleModal] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<Interview | null>(null);
@@ -37,13 +39,17 @@ export default function InterviewsPage() {
   const [mathTestFormUrl, setMathTestFormUrl] = useState<string>("");
 
   const fetchData = useCallback(async () => {
-    const [intRes, appRes, settingsRes] = await Promise.all([
+    const [intRes, appRes, candidatesRes, jobsRes, settingsRes] = await Promise.all([
       fetch("/api/interviews"),
       fetch("/api/applications"),
+      fetch("/api/candidates"),
+      fetch("/api/jobs"),
       fetch("/api/settings"),
     ]);
     setInterviews(await intRes.json());
     setApplications(await appRes.json());
+    setCandidates(await candidatesRes.json());
+    setJobs(await jobsRes.json());
     const settings = await settingsRes.json() as CompanySettings;
     if (settings.meeting_providers) setMeetingProviders(settings.meeting_providers);
     if (settings.math_test_form_url) setMathTestFormUrl(settings.math_test_form_url);
@@ -61,11 +67,44 @@ export default function InterviewsPage() {
     interviews.filter((i) => isSameDay(new Date(i.scheduled_at), day));
 
   async function handleSchedule(formData: Record<string, string>) {
+    let applicationId = formData.application_id;
+
+    // If no existing application_id, create one first (candidate + job selected directly)
+    if (!applicationId && formData.candidate_id && formData.job_id) {
+      const appRes = await fetch("/api/applications", {
+        method: "POST",
+        body: (() => {
+          const fd = new FormData();
+          fd.append("candidate_id", formData.candidate_id);
+          fd.append("job_id", formData.job_id);
+          return fd;
+        })(),
+      });
+      if (appRes.ok) {
+        // fetch the newly created application
+        const appsRes = await fetch(`/api/applications?job_id=${formData.job_id}`);
+        const apps = await appsRes.json();
+        const newApp = apps.find((a: Application) => a.candidate_id === formData.candidate_id);
+        if (newApp) applicationId = newApp.id;
+      } else {
+        // application may already exist — find it
+        const appsRes = await fetch(`/api/applications?job_id=${formData.job_id}`);
+        const apps = await appsRes.json();
+        const existing = apps.find((a: Application) => a.candidate_id === formData.candidate_id);
+        if (existing) applicationId = existing.id;
+      }
+    }
+
+    if (!applicationId) {
+      alert("Could not find or create an application for this candidate. Please add the candidate to a job first.");
+      return;
+    }
+
     await fetch("/api/interviews", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        application_id: formData.application_id,
+        application_id: applicationId,
         interview_type: formData.interview_type,
         scheduled_at: formData.scheduled_at,
         duration_minutes: parseInt(formData.duration_minutes),
@@ -263,6 +302,8 @@ export default function InterviewsPage() {
       <Modal open={scheduleModal} onClose={() => setScheduleModal(false)} title="Schedule Interview" size="lg">
         <ScheduleForm
           applications={applications.filter((a) => !["hired", "rejected"].includes(a.stage))}
+          allCandidates={candidates}
+          allJobs={jobs}
           providers={meetingProviders}
           onSubmit={handleSchedule}
           onCancel={() => setScheduleModal(false)}
@@ -291,14 +332,21 @@ export default function InterviewsPage() {
   );
 }
 
-function ScheduleForm({ applications, providers, onSubmit, onCancel }: {
+function ScheduleForm({ applications, allCandidates, allJobs, providers, onSubmit, onCancel }: {
   applications: Application[];
+  allCandidates: { id: string; name: string; email: string }[];
+  allJobs: { id: string; title: string; department: string }[];
   providers: string[];
   onSubmit: (data: Record<string, string>) => void;
   onCancel: () => void;
 }) {
+  const [mode, setMode] = useState<"application" | "candidate">(
+    applications.length > 0 ? "application" : "candidate"
+  );
   const [form, setForm] = useState({
     application_id: applications[0]?.id || "",
+    candidate_id: allCandidates[0]?.id || "",
+    job_id: allJobs[0]?.id || "",
     interview_type: "interview_1",
     scheduled_at: "",
     duration_minutes: "60",
@@ -310,23 +358,91 @@ function ScheduleForm({ applications, providers, onSubmit, onCancel }: {
 
   const providerOptions = providers.map((p) => ({ value: p, label: MEETING_PROVIDER_LABELS[p] || p }));
 
+  // When a candidate is selected in candidate mode, check if they already have an application
+  const selectedCandidateApps = applications.filter((a) => a.candidate_id === form.candidate_id);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (mode === "application") {
+      onSubmit({ ...form, candidate_id: "", job_id: "" });
+    } else {
+      onSubmit({ ...form, application_id: "" });
+    }
+  }
+
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(form); }} className="space-y-4">
-      <Select label="Candidate *" value={form.application_id} onChange={(e) => setForm({ ...form, application_id: e.target.value })}
-        options={applications.map((a) => ({ value: a.id, label: `${a.candidate?.name} — ${a.job?.title} (${a.stage})` }))} />
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Mode toggle */}
+      <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+        <button type="button"
+          className={`flex-1 py-2 font-medium transition-colors ${mode === "application" ? "bg-primary text-white" : "bg-white text-muted hover:bg-gray-50"}`}
+          onClick={() => setMode("application")}>
+          From Existing Application
+        </button>
+        <button type="button"
+          className={`flex-1 py-2 font-medium transition-colors ${mode === "candidate" ? "bg-primary text-white" : "bg-white text-muted hover:bg-gray-50"}`}
+          onClick={() => setMode("candidate")}>
+          Any Candidate
+        </button>
+      </div>
+
+      {mode === "application" ? (
+        applications.length === 0 ? (
+          <p className="text-sm text-muted text-center py-3 bg-gray-50 rounded-lg">
+            No active applications. Switch to <strong>Any Candidate</strong> tab to schedule directly.
+          </p>
+        ) : (
+          <Select label="Candidate & Position *" value={form.application_id}
+            onChange={(e) => setForm({ ...form, application_id: e.target.value })}
+            options={applications.map((a) => ({ value: a.id, label: `${a.candidate?.name} — ${a.job?.title} (${a.stage})` }))} />
+        )
+      ) : (
+        <div className="space-y-3">
+          <Select label="Candidate *" value={form.candidate_id}
+            onChange={(e) => setForm({ ...form, candidate_id: e.target.value })}
+            options={[
+              { value: "", label: "— Select Candidate —" },
+              ...allCandidates.map((c) => ({ value: c.id, label: `${c.name} (${c.email})` })),
+            ]} />
+          {selectedCandidateApps.length > 0 ? (
+            <Select label="Applied Position *" value={form.job_id}
+              onChange={(e) => setForm({ ...form, job_id: e.target.value })}
+              options={selectedCandidateApps.map((a) => ({ value: a.job_id, label: `${a.job?.title} (${a.stage})` }))} />
+          ) : (
+            <Select label="Job Position *" value={form.job_id}
+              onChange={(e) => setForm({ ...form, job_id: e.target.value })}
+              options={[
+                { value: "", label: "— Select Position —" },
+                ...allJobs.map((j) => ({ value: j.id, label: `${j.title} (${j.department})` })),
+              ]} />
+          )}
+          {selectedCandidateApps.length === 0 && form.job_id && (
+            <p className="text-xs text-muted bg-blue-50 rounded px-3 py-2">
+              An application will be automatically created for this candidate when you schedule the interview.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
-        <Select label="Interview Round *" value={form.interview_type} onChange={(e) => setForm({ ...form, interview_type: e.target.value })}
+        <Select label="Interview Round *" value={form.interview_type}
+          onChange={(e) => setForm({ ...form, interview_type: e.target.value })}
           options={[{ value: "interview_1", label: "Interview 1" }, { value: "interview_2", label: "Interview 2" }]} />
-        <Select label="Meeting Venue *" value={form.meeting_provider} onChange={(e) => setForm({ ...form, meeting_provider: e.target.value })}
+        <Select label="Meeting Venue *" value={form.meeting_provider}
+          onChange={(e) => setForm({ ...form, meeting_provider: e.target.value })}
           options={providerOptions} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Date & Time *" type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} required />
-        <Input label="Duration (min)" type="number" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} />
+        <Input label="Date & Time *" type="datetime-local" value={form.scheduled_at}
+          onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} required />
+        <Input label="Duration (min)" type="number" value={form.duration_minutes}
+          onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Interviewer Name *" value={form.interviewer_name} onChange={(e) => setForm({ ...form, interviewer_name: e.target.value })} required />
-        <Input label="Interviewer Email *" type="email" value={form.interviewer_email} onChange={(e) => setForm({ ...form, interviewer_email: e.target.value })} required />
+        <Input label="Interviewer Name *" value={form.interviewer_name}
+          onChange={(e) => setForm({ ...form, interviewer_name: e.target.value })} required />
+        <Input label="Interviewer Email *" type="email" value={form.interviewer_email}
+          onChange={(e) => setForm({ ...form, interviewer_email: e.target.value })} required />
       </div>
       <Textarea
         label="Remarks for Candidate"
