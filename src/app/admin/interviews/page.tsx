@@ -20,6 +20,7 @@ import {
   Upload,
   FileText,
   MessageSquare,
+  ClipboardList,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 
@@ -33,6 +34,7 @@ export default function InterviewsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [suggestRejectAlert, setSuggestRejectAlert] = useState<string | null>(null);
   const [meetingProviders, setMeetingProviders] = useState<string[]>(["google_meet", "zoom", "semipack_premise", "others"]);
+  const [mathTestFormUrl, setMathTestFormUrl] = useState<string>("");
 
   const fetchData = useCallback(async () => {
     const [intRes, appRes, settingsRes] = await Promise.all([
@@ -44,6 +46,7 @@ export default function InterviewsPage() {
     setApplications(await appRes.json());
     const settings = await settingsRes.json() as CompanySettings;
     if (settings.meeting_providers) setMeetingProviders(settings.meeting_providers);
+    if (settings.math_test_form_url) setMathTestFormUrl(settings.math_test_form_url);
     setLoading(false);
   }, []);
 
@@ -75,11 +78,11 @@ export default function InterviewsPage() {
     fetchData();
   }
 
-  async function handleFeedback(interviewId: string, score: number, feedback: string) {
+  async function handleFeedback(interviewId: string, score: number, feedback: string, mathScore: number | null) {
     const res = await fetch("/api/interviews", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: interviewId, score, feedback, completed: true }),
+      body: JSON.stringify({ id: interviewId, score, feedback, completed: true, math_score: mathScore }),
     });
     const data = await res.json();
     if (data.suggest_reject) setSuggestRejectAlert(data.message);
@@ -115,9 +118,19 @@ export default function InterviewsPage() {
           <h1 className="text-2xl font-bold">Interviews</h1>
           <p className="text-sm text-muted mt-1">Schedule and manage interviews</p>
         </div>
-        <Button onClick={() => setScheduleModal(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Schedule Interview
-        </Button>
+        <div className="flex items-center gap-3">
+          {mathTestFormUrl && (
+            <a href={mathTestFormUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium text-primary hover:bg-gray-50 transition-colors">
+              <ClipboardList className="w-4 h-4" />
+              Math Test Form
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+          <Button onClick={() => setScheduleModal(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Schedule Interview
+          </Button>
+        </div>
       </div>
 
       {suggestRejectAlert && (
@@ -222,9 +235,17 @@ export default function InterviewsPage() {
                     {interview.remarks && <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{interview.remarks}</p>}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {interview.math_score !== null && interview.math_score !== undefined && (
+                    <div className="text-center">
+                      <div className={`text-sm font-bold ${interview.math_score >= 70 ? "text-success" : interview.math_score >= 50 ? "text-warning" : "text-danger"}`}>
+                        {interview.math_score}%
+                      </div>
+                      <div className="text-xs text-muted">Math</div>
+                    </div>
+                  )}
                   {interview.score && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       {Array.from({ length: 5 }).map((_, i) => (
                         <Star key={i} className={`w-4 h-4 ${i < interview.score! ? "text-warning fill-warning" : "text-gray-200"}`} />
                       ))}
@@ -249,16 +270,21 @@ export default function InterviewsPage() {
       </Modal>
 
       {/* Feedback Modal */}
-      <Modal open={!!feedbackModal} onClose={() => setFeedbackModal(null)} title="Interview Feedback">
+      <Modal open={!!feedbackModal} onClose={() => setFeedbackModal(null)} title="Interview Feedback & Scores" size="lg">
         {feedbackModal && (
-          <FeedbackForm interview={feedbackModal} onSubmit={handleFeedback} onCancel={() => setFeedbackModal(null)} />
+          <FeedbackForm
+            interview={feedbackModal}
+            mathTestFormUrl={mathTestFormUrl}
+            onSubmit={handleFeedback}
+            onCancel={() => setFeedbackModal(null)}
+          />
         )}
       </Modal>
 
       {/* Detail / Remarks Modal */}
       <Modal open={!!detailModal} onClose={() => setDetailModal(null)} title="Interview Details" size="lg">
         {detailModal && (
-          <DetailForm interview={detailModal} onSave={handleRemarks} onCancel={() => setDetailModal(null)} />
+          <DetailForm interview={detailModal} mathTestFormUrl={mathTestFormUrl} onSave={handleRemarks} onCancel={() => setDetailModal(null)} />
         )}
       </Modal>
     </div>
@@ -317,22 +343,69 @@ function ScheduleForm({ applications, providers, onSubmit, onCancel }: {
   );
 }
 
-function FeedbackForm({ interview, onSubmit, onCancel }: {
+function FeedbackForm({ interview, mathTestFormUrl, onSubmit, onCancel }: {
   interview: Interview;
-  onSubmit: (id: string, score: number, feedback: string) => void;
+  mathTestFormUrl: string;
+  onSubmit: (id: string, score: number, feedback: string, mathScore: number | null) => void;
   onCancel: () => void;
 }) {
   const [score, setScore] = useState(interview.score || 3);
   const [feedback, setFeedback] = useState(interview.feedback || "");
+  const [mathScore, setMathScore] = useState<string>(
+    interview.math_score !== null && interview.math_score !== undefined ? String(interview.math_score) : ""
+  );
+
+  const mathScoreNum = mathScore === "" ? null : parseInt(mathScore);
+  const mathScoreColor = mathScoreNum === null ? "" : mathScoreNum >= 70 ? "text-success" : mathScoreNum >= 50 ? "text-warning" : "text-danger";
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit(interview.id, score, feedback); }} className="space-y-4">
-      <div>
-        <p className="text-sm text-muted mb-2">{interview.application?.candidate?.name} — {interview.application?.job?.title}</p>
-        <p className="text-xs text-muted">{format(new Date(interview.scheduled_at), "d MMM yyyy, h:mm a")} · {interview.interviewer_name}</p>
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit(interview.id, score, feedback, mathScoreNum); }} className="space-y-5">
+      <div className="bg-gray-50 rounded-lg p-3 text-sm">
+        <p className="font-medium">{interview.application?.candidate?.name} — {interview.application?.job?.title}</p>
+        <p className="text-xs text-muted mt-0.5">{format(new Date(interview.scheduled_at), "d MMM yyyy, h:mm a")} · {interview.interviewer_name}</p>
       </div>
+
+      {/* Math Test Section */}
+      <div className="border border-border rounded-lg p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-gray-700">Mathematics Test</span>
+          </div>
+          {mathTestFormUrl && (
+            <a href={mathTestFormUrl} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors font-medium">
+              <ExternalLink className="w-3 h-3" />
+              Open Google Form
+            </a>
+          )}
+        </div>
+        <p className="text-xs text-muted">Share the Google Form with the candidate during the interview, then enter their score below after reviewing the responses.</p>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Math Score (0–100)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={mathScore}
+              onChange={(e) => setMathScore(e.target.value)}
+              placeholder="e.g. 85"
+              className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
+          {mathScoreNum !== null && (
+            <div className="text-center pt-5">
+              <div className={`text-2xl font-bold ${mathScoreColor}`}>{mathScoreNum}%</div>
+              <div className="text-xs text-muted">{mathScoreNum >= 70 ? "Pass" : mathScoreNum >= 50 ? "Borderline" : "Fail"}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Interview Score */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Score (1-5) *</label>
+        <label className="block text-sm font-medium text-gray-700">Overall Interview Score (1–5) *</label>
         <div className="flex items-center gap-1">
           {[1, 2, 3, 4, 5].map((s) => (
             <button key={s} type="button" onClick={() => setScore(s)} className="p-1">
@@ -342,7 +415,9 @@ function FeedbackForm({ interview, onSubmit, onCancel }: {
           <span className="ml-2 text-sm text-muted">{score}/5</span>
         </div>
       </div>
-      <Textarea label="Feedback *" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Share your assessment..." rows={5} required />
+
+      <Textarea label="Interviewer Feedback *" value={feedback} onChange={(e) => setFeedback(e.target.value)} placeholder="Share your assessment of the candidate..." rows={5} required />
+
       <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" type="button" onClick={onCancel}>Cancel</Button>
         <Button type="submit">Submit Feedback</Button>
@@ -351,13 +426,18 @@ function FeedbackForm({ interview, onSubmit, onCancel }: {
   );
 }
 
-function DetailForm({ interview, onSave, onCancel }: {
+function DetailForm({ interview, mathTestFormUrl, onSave, onCancel }: {
   interview: Interview;
+  mathTestFormUrl: string;
   onSave: (id: string, remarks: string, formFile: File | null) => void;
   onCancel: () => void;
 }) {
   const [remarks, setRemarks] = useState(interview.remarks || "");
   const [formFile, setFormFile] = useState<File | null>(null);
+
+  const mathScoreColor = interview.math_score !== null && interview.math_score !== undefined
+    ? (interview.math_score >= 70 ? "text-success" : interview.math_score >= 50 ? "text-warning" : "text-danger")
+    : "";
 
   return (
     <div className="space-y-5">
@@ -375,8 +455,16 @@ function DetailForm({ interview, onSave, onCancel }: {
             <a href={interview.meeting_link} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline flex items-center gap-1"><Video className="w-3.5 h-3.5" />Join</a>
           </div>
         )}
+        {interview.math_score !== null && interview.math_score !== undefined && (
+          <div className="flex justify-between items-center">
+            <span className="text-muted flex items-center gap-1"><ClipboardList className="w-3.5 h-3.5" />Math Score</span>
+            <span className={`font-bold ${mathScoreColor}`}>
+              {interview.math_score}% — {interview.math_score >= 70 ? "Pass" : interview.math_score >= 50 ? "Borderline" : "Fail"}
+            </span>
+          </div>
+        )}
         {interview.score && (
-          <div className="flex justify-between items-center"><span className="text-muted">Score</span>
+          <div className="flex justify-between items-center"><span className="text-muted">Interview Score</span>
             <div className="flex items-center gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star key={i} className={`w-3.5 h-3.5 ${i < interview.score! ? "text-warning fill-warning" : "text-gray-200"}`} />
@@ -388,6 +476,21 @@ function DetailForm({ interview, onSave, onCancel }: {
           <div><span className="text-muted block mb-1">Feedback</span><p className="text-gray-700 text-xs bg-white rounded p-2 border border-border">{interview.feedback}</p></div>
         )}
       </div>
+
+      {/* Math Test Link */}
+      {mathTestFormUrl && (
+        <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Mathematics Test Form</span>
+          </div>
+          <a href={mathTestFormUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary-light transition-colors">
+            <ExternalLink className="w-3 h-3" />
+            Open Form
+          </a>
+        </div>
+      )}
 
       {/* Existing form */}
       {interview.application_form_url && (

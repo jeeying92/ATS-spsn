@@ -48,6 +48,7 @@ export async function PUT(req: NextRequest) {
   const missionZh = formData.get("mission_zh") as string;
   const addressZh = formData.get("address_zh") as string;
   const meetingProvidersRaw = formData.get("meeting_providers") as string | null;
+  const mathTestFormUrl = formData.get("math_test_form_url") as string | null;
   const logo = formData.get("logo") as File | null;
   const companyPhoto = formData.get("company_photo") as File | null;
 
@@ -58,6 +59,7 @@ export async function PUT(req: NextRequest) {
     vision_zh: visionZh || "",
     mission_zh: missionZh || "",
     address_zh: addressZh || "",
+    math_test_form_url: mathTestFormUrl || null,
     updated_at: new Date().toISOString(),
   };
 

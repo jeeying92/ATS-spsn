@@ -15,7 +15,7 @@ export async function GET() {
     supabase.from("applications").select("*, candidate:candidates(source), job:jobs(title, department)"),
     supabase.from("jobs").select("*"),
     supabase.from("candidates").select("*"),
-    supabase.from("interviews").select("*"),
+    supabase.from("interviews").select("*, application:applications(*, candidate:candidates(*), job:jobs(*))"),
     supabase.from("candidate_scores").select("*, candidate:candidates(name)"),
   ]);
 
@@ -83,6 +83,33 @@ export async function GET() {
     };
   });
 
+  // Math score analytics
+  const allInterviews = interviews || [];
+  const interviewsWithMathScore = allInterviews.filter((i: Record<string, unknown>) => i.math_score !== null && i.math_score !== undefined);
+  const avgMathScore = interviewsWithMathScore.length > 0
+    ? Math.round(interviewsWithMathScore.reduce((sum: number, i: Record<string, unknown>) => sum + Number(i.math_score), 0) / interviewsWithMathScore.length * 10) / 10
+    : 0;
+  const mathScoreStats = {
+    totalTested: interviewsWithMathScore.length,
+    avgScore: avgMathScore,
+    pass: interviewsWithMathScore.filter((i: Record<string, unknown>) => Number(i.math_score) >= 70).length,
+    borderline: interviewsWithMathScore.filter((i: Record<string, unknown>) => Number(i.math_score) >= 50 && Number(i.math_score) < 70).length,
+    fail: interviewsWithMathScore.filter((i: Record<string, unknown>) => Number(i.math_score) < 50).length,
+    topScorers: interviewsWithMathScore
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.math_score) - Number(a.math_score))
+      .slice(0, 5)
+      .map((i: Record<string, unknown>) => ({
+        candidateName: (i.application as Record<string, unknown> | undefined)?.candidate
+          ? ((i.application as Record<string, unknown>).candidate as Record<string, unknown>)?.name || "Unknown"
+          : "Unknown",
+        jobTitle: (i.application as Record<string, unknown> | undefined)?.job
+          ? ((i.application as Record<string, unknown>).job as Record<string, unknown>)?.title || ""
+          : "",
+        mathScore: Number(i.math_score),
+        interviewType: i.interview_type,
+      })),
+  };
+
   return NextResponse.json({
     summary: {
       totalJobs: allJobs.length,
@@ -90,12 +117,13 @@ export async function GET() {
       totalCandidates: (candidates || []).length,
       totalApplications: apps.length,
       avgTimeToHire: Math.round(avgTimeToHire * 10) / 10,
-      totalInterviews: (interviews || []).length,
+      totalInterviews: allInterviews.length,
     },
     stageCounts,
     stagePassthrough,
     sourceStats,
     deptStats,
+    mathScoreStats,
     scoreStats: {
       totalScored: (candidateScores || []).length,
       avgOverall: (candidateScores || []).length > 0

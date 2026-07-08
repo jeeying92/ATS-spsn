@@ -26,6 +26,7 @@ import {
   TrendingUp,
   Download,
   Star,
+  ClipboardList,
 } from "lucide-react";
 
 interface ReportData {
@@ -47,6 +48,14 @@ interface ReportData {
     hired: number;
     inPipeline: number;
   }[];
+  mathScoreStats: {
+    totalTested: number;
+    avgScore: number;
+    pass: number;
+    borderline: number;
+    fail: number;
+    topScorers: { candidateName: string; jobTitle: string; mathScore: number; interviewType: string }[];
+  };
   scoreStats: {
     totalScored: number;
     avgOverall: number;
@@ -145,11 +154,25 @@ export default function ReportsPage() {
     );
   }
 
+  function downloadMathStats() {
+    const d = data!;
+    downloadCSV("math_test_scores.csv",
+      ["Candidate", "Job", "Round", "Math Score", "Result"],
+      d.mathScoreStats.topScorers.map((s) => [
+        s.candidateName, s.jobTitle,
+        s.interviewType === "interview_1" ? "Round 1" : "Round 2",
+        `${s.mathScore}%`,
+        s.mathScore >= 70 ? "Pass" : s.mathScore >= 50 ? "Borderline" : "Fail",
+      ])
+    );
+  }
+
   function downloadAll() {
     downloadSummary();
     setTimeout(downloadStageConversion, 200);
     setTimeout(downloadSourceStats, 400);
     setTimeout(downloadDeptStats, 600);
+    setTimeout(downloadMathStats, 800);
   }
 
   return (
@@ -311,6 +334,113 @@ export default function ReportsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Math Test Score Analytics */}
+      <div className="grid md:grid-cols-2 gap-6 mt-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Math Test Results
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("math_test_results.csv",
+                ["Category", "Count"],
+                [
+                  ["Total Tested", String(d.mathScoreStats.totalTested)],
+                  ["Average Score", `${d.mathScoreStats.avgScore}%`],
+                  ["Pass (≥70%)", String(d.mathScoreStats.pass)],
+                  ["Borderline (50–69%)", String(d.mathScoreStats.borderline)],
+                  ["Fail (<50%)", String(d.mathScoreStats.fail)],
+                ]
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {data.mathScoreStats.totalTested === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No math test scores recorded yet.</p>
+            ) : (
+              <>
+                <div className="text-center py-3 mb-4">
+                  <div className={`text-3xl font-bold ${data.mathScoreStats.avgScore >= 70 ? "text-success" : data.mathScoreStats.avgScore >= 50 ? "text-warning" : "text-danger"}`}>
+                    {data.mathScoreStats.avgScore}%
+                  </div>
+                  <div className="text-xs text-muted">Average Score ({data.mathScoreStats.totalTested} tested)</div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { label: "Pass (≥70%)", count: data.mathScoreStats.pass, color: "bg-green-400" },
+                    { label: "Borderline (50–69%)", count: data.mathScoreStats.borderline, color: "bg-yellow-400" },
+                    { label: "Fail (<50%)", count: data.mathScoreStats.fail, color: "bg-red-400" },
+                  ].map((item) => {
+                    const pct = data.mathScoreStats.totalTested > 0 ? Math.round((item.count / data.mathScoreStats.totalTested) * 100) : 0;
+                    return (
+                      <div key={item.label}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>{item.label}</span>
+                          <span className="text-muted">{item.count} ({pct}%)</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${item.color}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="font-semibold flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-primary" />
+              Top Math Scorers
+            </h2>
+            <button onClick={() => {
+              const d = data!;
+              downloadCSV("top_math_scorers.csv",
+                ["Candidate", "Job", "Round", "Math Score"],
+                d.mathScoreStats.topScorers.map((s) => [
+                  s.candidateName, s.jobTitle,
+                  s.interviewType === "interview_1" ? "Round 1" : "Round 2",
+                  `${s.mathScore}%`,
+                ])
+              );
+            }} className="text-muted hover:text-primary transition-colors" title="Download CSV">
+              <Download className="w-4 h-4" />
+            </button>
+          </CardHeader>
+          <CardContent>
+            {data.mathScoreStats.topScorers.length === 0 ? (
+              <p className="text-sm text-muted text-center py-4">No math test scores recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {data.mathScoreStats.topScorers.map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      i === 0 ? "bg-primary/20 text-primary" : "bg-gray-200 text-gray-600"
+                    }`}>
+                      {i + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{s.candidateName}</div>
+                      <div className="text-xs text-muted truncate">{s.jobTitle} · {s.interviewType === "interview_1" ? "Round 1" : "Round 2"}</div>
+                    </div>
+                    <div className={`text-lg font-bold ${s.mathScore >= 70 ? "text-success" : s.mathScore >= 50 ? "text-warning" : "text-danger"}`}>
+                      {s.mathScore}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Candidate Score Analytics */}
       <div className="grid md:grid-cols-2 gap-6 mt-8">

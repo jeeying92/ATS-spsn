@@ -67,6 +67,7 @@ export interface Interview {
   score: number | null;
   completed: boolean;
   remarks: string | null;
+  math_score: number | null;
   application_form_url: string | null;
   created_at: string;
   // joined
@@ -120,6 +121,7 @@ export interface CompanySettings {
   mission_zh: string;
   address_zh: string;
   meeting_providers: string[];
+  math_test_form_url: string | null;
   updated_at: string;
 }
 
