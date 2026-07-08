@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Send invite email to candidate
+  let emailError: string | null = null;
   try {
     const scheduledDate = new Date(interview.scheduled_at);
     const emailContent = interviewInviteEmail(
@@ -68,12 +69,15 @@ export async function POST(req: NextRequest) {
       meetingLink || "On-site / To be confirmed",
       interview.interviewer_name
     );
-    await sendEmail({ to: interview.application.candidate.email, ...emailContent });
-  } catch {
-    // Don't block on email failure
+    const result = await sendEmail({ to: interview.application.candidate.email, ...emailContent });
+    if (result && typeof result === "object" && "error" in result && result.error) {
+      emailError = String((result.error as Record<string, unknown>).message || result.error);
+    }
+  } catch (e: unknown) {
+    emailError = e instanceof Error ? e.message : "Unknown email error";
   }
 
-  return NextResponse.json(interview);
+  return NextResponse.json({ ...interview, email_error: emailError });
 }
 
 export async function PUT(req: NextRequest) {

@@ -11,7 +11,8 @@ function getResend(): Resend | null {
   return _resend;
 }
 
-const FROM_EMAIL = "Semipack Malaysia Careers <careers@semipack.com.my>";
+// Use verified Resend domain. Replace with careers@semipack.com.my once that domain is verified in Resend dashboard.
+const FROM_EMAIL = process.env.FROM_EMAIL || "Semipack Malaysia HR <onboarding@resend.dev>";
 
 interface SendEmailParams {
   to: string;

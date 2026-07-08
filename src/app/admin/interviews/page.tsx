@@ -122,9 +122,15 @@ export default function InterviewsPage() {
         return;
       }
 
+      const intData = await intRes.json();
       setScheduleModal(false);
       setScheduleError(null);
       fetchData();
+
+      // Warn if email failed to send
+      if (intData.email_error) {
+        setSuggestRejectAlert(`Interview scheduled ✓ — but invitation email could not be sent: ${intData.email_error}. Please send the invite manually.`);
+      }
     } finally {
       setScheduling(false);
     }
